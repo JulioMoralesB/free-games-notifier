@@ -14,7 +14,7 @@ def fetch_free_games():
         return []
     
     data = response.json()
-    logger.info(f"Response obtained from Epic Games API.")
+    logger.info(f"Response obtained from Epic Games API. Response Keys: {list(data.keys())}" )
     games = []
 
     for game in data["data"]["Catalog"]["searchStore"]["elements"]:
@@ -70,6 +70,10 @@ def fetch_free_games():
                 
             end_date = ""
             logger.info(f"Promotions: {game['promotions']}")
+            #If there are no promotional offers, skip the game
+            if not game["promotions"] or not game["promotions"].get("promotionalOffers"):
+                logger.info("No promotional offers found, skipping.")
+                continue
             for offer in game["promotions"]["promotionalOffers"][0]["promotionalOffers"]:
                 if offer["discountSetting"]["discountPercentage"] == 0:
                     end_date = offer["endDate"]
