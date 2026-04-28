@@ -5,10 +5,10 @@ A Python-based scheduler that monitors the Epic Games Store and Steam for free g
 ## Features
 
 - ✅ **Multi-Store Monitoring**: Checks Epic Games Store and Steam for free games — on a daily schedule or a configurable repeating interval
-- 💬 **Discord Notifications**: Sends beautifully formatted Discord embeds with game details, original price, and user review score
+- 💬 **Discord Notifications**: Sends beautifully formatted Discord embeds with game details, original price, and review scores (Steam user reviews + Metacritic)
 - 📊 **Persistent Storage**: Maintains game history — PostgreSQL when `DB_HOST` is set, JSON file otherwise
 - 🏥 **Health Checks**: Optional UptimeKuma/Healthchecks.io integration for monitoring
-- 🌐 **Web Dashboard**: Browse and search the full history of tracked free games at `/dashboard/`
+- 🌐 **Web Dashboard**: Browse, filter, and search the full history of tracked free games at `/dashboard/`
 - 🔌 **REST API**: Built-in FastAPI endpoints for health, history, metrics, and notification management
 - 🐳 **Docker Ready**: Includes Docker and docker-compose configurations
 - 🌍 **Fully Configurable**: Set `REGION` to a single IANA timezone string and get timezone, locale, Steam language, and Steam country all at once — or configure each variable individually
@@ -135,12 +135,16 @@ The dashboard is a React/TypeScript SPA served at **`http://<host>:<API_PORT>/da
 
 ![Web Dashboard](https://github.com/user-attachments/assets/1ffef230-45e2-4ef1-9ffb-6a7a9d573d62)
 
-- Game cards with thumbnail, title, description, promotion end date, and Epic Games Store link
-- Live search by title or description
+- Game cards with thumbnail, title, description, original price, review scores, and promotion end date
+- **Status filter**: tabs to view "Currently Free", "Previously Free", or all games
+- **Store filter**: pill buttons to filter by All / Epic Games / Steam
+- Countdown timer on active promotions; expired cards are visually dimmed
+- Live search by title or description (client-side, within the current page)
 - Sort by date or title
-- Server-side pagination with smart ellipsis
+- Server-side pagination with smart ellipsis (filters applied before paginating)
 - Responsive dark theme, no external UI framework
 - English and Spanish built-in; browser language auto-detected; preference persisted in `localStorage`
+- Filter selections (status, store) persisted in `sessionStorage`
 
 For development setup, hot-reload, and adding new languages, see [docs/dashboard.md](docs/dashboard.md).
 
@@ -265,9 +269,9 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 - [x] Support for additional game stores — Steam (#56)
 - [x] Display original price and Steam country-specific pricing (#107)
 - [x] Unified `REGION` variable — one setting derives timezone, locale, and all store options (#117)
-- [ ] Show user reviews for Epic Games Store games (#106)
-- [ ] Differentiate DLCs from base games in notifications and dashboard (#109)
-- [ ] Store filter in the web dashboard (#115)
+- [x] Show review scores (Steam + Metacritic) in notifications and dashboard (#106)
+- [x] Differentiate DLCs from base games in notifications and dashboard (#109)
+- [x] Store filter in the web dashboard (#115)
+- [x] UI/UX Enhancements: status filter tabs, countdown timer, original price, review scores, expired card styling (#71)
 - [ ] Add support for multiple notification channels (Discord, Slack, Telegram, etc.) (#55)
-- [ ] UI/UX Enhancements (#71)
 

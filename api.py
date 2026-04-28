@@ -4,6 +4,7 @@ import os
 import threading
 import time
 import logging
+from datetime import datetime, timezone
 from typing import List, Optional
 
 import requests as requests_lib
@@ -49,7 +50,8 @@ class GameItem(BaseModel):
     description: str = Field(..., description="Short description of the game")
     thumbnail: str = Field(..., description="URL to the game's thumbnail image")
     game_type: str = Field("game", description="Content type: 'game' or 'dlc'", examples=["game", "dlc"])
-    review_scores: List[str] = Field(default_factory=list, description="Review scores from available sources", examples=[["Very Positive", "Metascore: 83", "OpenCritic: 78"]])
+    original_price: Optional[str] = Field(default=None, description="Original retail price before the free promotion", examples=["$19.99", "€14.99"])
+    review_scores: List[str] = Field(default_factory=list, description="Review scores from available sources", examples=[["Very Positive", "Metascore: 83"]])
 
 
 class HealthResponse(BaseModel):
@@ -169,6 +171,7 @@ def _to_game_item_dict(game) -> dict:
             "description": game.description,
             "thumbnail": game.image_url,
             "game_type": game.game_type,
+            "original_price": game.original_price,
             "review_scores": game.review_scores,
         }
     # Legacy dict format – ensure store key is present with a safe default.
@@ -299,6 +302,8 @@ def games_history(
     offset: int = Query(default=0, ge=0, description="Number of games to skip"),
     sort_by: str = Query(default="end_date", pattern="^(end_date|title)$", description="Field to sort by"),
     sort_dir: str = Query(default="desc", pattern="^(asc|desc)$", description="Sort direction"),
+    store: str = Query(default="all", pattern="^(all|epic|steam)$", description="Filter by store: 'all', 'epic', or 'steam'"),
+    status: str = Query(default="all", pattern="^(all|active|expired)$", description="Filter by promotion status: 'all', 'active' (end_date in the future), or 'expired'"),
 ):
     """Paginated access to all past fetched games.
 
@@ -307,11 +312,21 @@ def games_history(
     - **offset**: Number of games to skip (default: 0)
     - **sort_by**: Field to sort by — ``end_date`` (default) or ``title``
     - **sort_dir**: Sort direction — ``desc`` (default) or ``asc``
+    - **store**: Store filter — ``all`` (default), ``epic``, or ``steam``
+    - **status**: Promotion status filter — ``all`` (default), ``active`` (promotion still live), or ``expired``
 
-    Sorting is applied to the full dataset **before** pagination so that the
-    ordering is consistent across pages.
+    Filtering and sorting are applied to the full dataset **before** pagination
+    so that counts and ordering are consistent across pages.
     """
     from modules.storage import load_previous_games
+
+    def _get_end_date(game) -> datetime:
+        """Return the game's end_date as an aware UTC datetime, or datetime.min on parse error."""
+        try:
+            raw = game.end_date if isinstance(game, FreeGame) else game.get("end_date", "")
+            return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except Exception:
+            return datetime.min.replace(tzinfo=timezone.utc)
 
     def _sort_key(game):
         if sort_by == "title":
@@ -322,6 +337,23 @@ def games_history(
 
     try:
         all_games = load_previous_games()
+
+        # Apply store filter — legacy dict records without a "store" key default to
+        # "epic" to match the same fallback used in _to_game_item_dict serialization.
+        if store != "all":
+            all_games = [
+                g for g in all_games
+                if (g.store if isinstance(g, FreeGame) else g.get("store", "epic")) == store
+            ]
+
+        # Apply status filter
+        if status != "all":
+            now = datetime.now(timezone.utc)
+            if status == "active":
+                all_games = [g for g in all_games if _get_end_date(g) > now]
+            else:  # expired
+                all_games = [g for g in all_games if _get_end_date(g) <= now]
+
         all_games.sort(key=_sort_key, reverse=(sort_dir == "desc"))
         total = len(all_games)
         page = all_games[offset : offset + limit]
