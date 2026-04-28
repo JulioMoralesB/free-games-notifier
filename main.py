@@ -33,6 +33,8 @@ from modules.storage import load_previous_games, save_games, save_last_notificat
 
 setup_logging(timezone=TIMEZONE, log_file="/mnt/logs/notifier.log")
 
+logger = logging.getLogger(__name__)
+
 
 # Filter that drops uvicorn access-log entries for the /health endpoint.
 # The health endpoint is polled every minute by the scheduler and would otherwise
@@ -170,10 +172,10 @@ def _find_new_games(current_games, previous_games):
 def check_games():
 
     """Main execution function that checks for new free games and sends Discord notification."""
-    logging.info("Checking for new free games...")
+    logger.info("Checking for new free games...")
 
     scrapers = get_enabled_scrapers(ENABLED_STORES)
-    logging.info(
+    logger.info(
         "Running %d enabled scraper(s): %s",
         len(scrapers),
         [s.store_name for s in scrapers],
@@ -184,46 +186,46 @@ def check_games():
         store = scraper.store_name
         try:
             store_games = scraper.fetch_free_games()
-            logging.info(f"Games obtained from {store} scraper: {len(store_games)} game(s)")
+            logger.info("Games obtained from %s scraper: %d game(s)", store, len(store_games))
             current_games.extend(store_games)
         except Exception as e:
             # Isolate failures so one broken store does not prevent others from running.
-            logging.error(f"Failed to fetch games from {store} scraper: {str(e)}")
+            logger.error("Failed to fetch games from %s scraper: %s", store, e)
             continue
 
     if current_games == []:
-        logging.error("No free games found or failed to fetch.")
+        logger.error("No free games found or failed to fetch.")
         return
 
     try:
         previous_games = load_previous_games()
-        logging.info(f"Previous games loaded from storage: {previous_games} game(s)")
+        logger.info("Previous games loaded from storage: %s game(s)", previous_games)
     except Exception as e:
-        logging.error(f"Failed to load previous games: {str(e)}")
+        logger.error("Failed to load previous games: %s", e)
         return
 
     new_games = _find_new_games(current_games, previous_games)
 
     if new_games:
-        logging.info(f"Found {len(new_games)} new free games! Sending Discord notification...")
+        logger.info("Found %d new free games! Sending Discord notification...", len(new_games))
 
         # Wrap Discord send with try-except to prevent scheduler crash
         try:
             send_discord_message(new_games)
-            logging.info("Discord notification sent successfully")
+            logger.info("Discord notification sent successfully")
         except ValueError as e:
-            logging.error(f"Discord error (ValueError) while sending message: {str(e)}")
-            logging.warning("Discord notification failed due to a ValueError, but continuing scheduler. Investigate the underlying cause (configuration or data-related).")
+            logger.error("Discord error (ValueError) while sending message: %s", e)
+            logger.warning("Discord notification failed due to a ValueError, but continuing scheduler. Investigate the underlying cause (configuration or data-related).")
             # Don't save games if Discord notification fails
             return
         except requests.exceptions.RequestException as e:
-            logging.error(f"Discord request failed (network/HTTP error): {str(e)} | Games to notify: {len(new_games)}")
-            logging.warning("Discord notification failed due to network issue, but continuing scheduler.")
+            logger.error("Discord request failed (network/HTTP error): %s | Games to notify: %d", e, len(new_games))
+            logger.warning("Discord notification failed due to network issue, but continuing scheduler.")
             # Don't save games if Discord notification fails
             return
         except Exception as e:
-            logging.error(f"Unexpected error sending Discord message: {str(e)} | Games to notify: {len(new_games)}")
-            logging.warning("Discord notification failed unexpectedly, but continuing scheduler.")
+            logger.error("Unexpected error sending Discord message: %s | Games to notify: %d", e, len(new_games))
+            logger.warning("Discord notification failed unexpectedly, but continuing scheduler.")
             # Don't save games if Discord notification fails
             return
 
@@ -231,11 +233,11 @@ def check_games():
         try:
             save_last_notification(new_games)
         except Exception as e:
-            logging.error(f"Failed to save last notification: {str(e)}")
-            logging.warning("Discord notification was sent but failed to record it for the resend endpoint.")
+            logger.error("Failed to save last notification: %s", e)
+            logger.warning("Discord notification was sent but failed to record it for the resend endpoint.")
 
     else:
-        logging.warning("No new free games detected.")
+        logger.warning("No new free games detected.")
 
     # Always persist so that the DB upsert keeps end_date values fresh, preventing
     # stale promos from triggering false re-notifications.
@@ -252,7 +254,7 @@ def check_games():
         if g.store not in stores_with_results and _is_still_active(g)
     ]
     if preserved:
-        logging.info(
+        logger.info(
             "Carrying forward %d still-active game(s) from store(s) with no results "
             "this run to prevent duplicate notifications: %s",
             len(preserved),
@@ -262,29 +264,29 @@ def check_games():
 
     try:
         save_games(games_to_save)
-        logging.info("Games saved successfully to storage")
+        logger.info("Games saved successfully to storage")
     except IOError as e:
-        logging.error(f"Failed to save games to storage: {str(e)}")
-        logging.warning("Failed to update local cache. This may cause duplicate notifications next run.")
+        logger.error("Failed to save games to storage: %s", e)
+        logger.warning("Failed to update local cache. This may cause duplicate notifications next run.")
     except Exception as e:
-        logging.error(f"Unexpected error saving games: {str(e)}")
-        logging.warning("Failed to update local cache.")
+        logger.error("Unexpected error saving games: %s", e)
+        logger.warning("Failed to update local cache.")
 
 def _run_db_migrations():
     """Apply any pending Alembic migrations up to the latest revision."""
-    logging.info("Applying database migrations...")
+    logger.info("Applying database migrations...")
     # Suppress verbose per-revision Alembic log lines from service logs.
     # env.py skips fileConfig when the service's logging is already configured,
     # but raise the level here as well to guard against any propagation.
     logging.getLogger("alembic").setLevel(logging.WARNING)
     cfg = AlembicConfig(os.path.join(os.path.dirname(__file__), "alembic.ini"))
     alembic_command.upgrade(cfg, "head")
-    logging.info("Database migrations applied successfully.")
+    logger.info("Database migrations applied successfully.")
 
 
 def _verify_required_tables():
     """Fail fast when required DB tables are missing after migrations."""
-    logging.info("Verifying required database tables...")
+    logger.info("Verifying required database tables...")
 
     conn_params = {
         "host": DB_HOST,
@@ -303,7 +305,7 @@ def _verify_required_tables():
                     "Run 'alembic upgrade head' and verify DB permissions."
                 )
 
-    logging.info("Required database tables verified successfully.")
+    logger.info("Required database tables verified successfully.")
 
 
 def _start_api_server():
@@ -316,19 +318,19 @@ def _start_api_server():
     # is already registered on the logger object uvicorn will use.
     logging.getLogger("uvicorn.access").addFilter(_HealthEndpointFilter())
 
-    logging.info("Starting REST API server on %s:%s...", API_HOST, API_PORT)
+    logger.info("Starting REST API server on %s:%s...", API_HOST, API_PORT)
     uvicorn.run(app, host=API_HOST, port=API_PORT, log_level="info")
 
 
 def main():
     if DB_HOST:
-        logging.info("Database configuration detected. Initializing database...")
+        logger.info("Database configuration detected. Initializing database...")
         db = FreeGamesDatabase()
         db.init_db()
         _run_db_migrations()
         _verify_required_tables()
     else:
-        logging.info("No database configuration detected. Using JSON file storage.")
+        logger.info("No database configuration detected. Using JSON file storage.")
 
     # Start REST API server in a background thread
     api_thread = threading.Thread(target=_start_api_server, daemon=True)
@@ -337,12 +339,12 @@ def main():
     check_games()
     healthcheck()
 
-    logging.debug("Starting scheduler...")
+    logger.debug("Starting scheduler...")
 
     if CHECK_INTERVAL_HOURS is not None:
         # Interval mode: check every N hours regardless of time of day.
         # Ideal for multi-store setups where Steam games can appear at any time.
-        logging.info(
+        logger.info(
             "Scheduling game checks every %.4g hour(s) (CHECK_INTERVAL_HOURS=%s).",
             CHECK_INTERVAL_HOURS,
             CHECK_INTERVAL_HOURS,
@@ -350,7 +352,7 @@ def main():
         schedule.every(CHECK_INTERVAL_HOURS).hours.do(check_games)
     else:
         # Daily mode: check once per day at the configured time (legacy default).
-        logging.info(
+        logger.info(
             "Scheduling game checks once daily at %s %s (SCHEDULE_TIME=%s).",
             SCHEDULE_TIME,
             TIMEZONE,
@@ -365,5 +367,5 @@ def main():
         time.sleep(1)
 
 if __name__ == "__main__":
-    logging.info("Starting service...")
+    logger.info("Starting service...")
     main()

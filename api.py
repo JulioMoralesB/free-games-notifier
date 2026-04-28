@@ -35,6 +35,8 @@ from config import (
 from modules.models import FreeGame
 from modules.notifier import validate_discord_webhook_url
 
+logger = logging.getLogger(__name__)
+
 # ---------------------------------------------------------------------------
 # Pydantic response models (for OpenAPI / Swagger documentation)
 # ---------------------------------------------------------------------------
@@ -151,7 +153,6 @@ class WebhookOverrideRequest(BaseModel):
 
         validate_discord_webhook_url(v_stripped)
         return v_stripped
-logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
