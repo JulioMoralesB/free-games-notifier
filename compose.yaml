@@ -1,5 +1,12 @@
 services:
   free-games-notifier:
+    # Pre-built image from GitHub Container Registry.
+    # To use it: docker compose pull && docker compose up -d
+    # Pin to a specific version for reproducible deployments:
+    # image: ghcr.io/juliomoralesb/free-games-notifier:1.2.3
+    image: ghcr.io/juliomoralesb/free-games-notifier:latest
+    # Build from source (local development / integration tests):
+    # docker compose up -d --build
     build:
       context: .
     container_name: free-games-notifier
@@ -7,7 +14,6 @@ services:
     # No need to enumerate variables here — config.py handles all defaults.
     env_file:
       - .env
-    image: free-games-notifier
     ports:
       - "${API_PORT:-8000}:${API_PORT:-8000}"
     restart: unless-stopped
@@ -21,8 +27,10 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
-      - apollo-server-network
+      - free-games-notifier-network
 
 networks:
-  apollo-server-network:
-    external: true
+  free-games-notifier-network:
+    # Created automatically by Docker Compose on first run.
+    # To connect this service to an existing external network (e.g. a reverse proxy),
+    # change this to: external: true and update the name above accordingly.

@@ -23,7 +23,7 @@ A Python-based scheduler that monitors the Epic Games Store and Steam for free g
 
 ### Docker Deployment
 - Docker 20.10+
-- Docker Compose 1.29+
+- Docker Compose v2+ (`docker compose`) or Compose v1 (`docker-compose`)
 - (Optional) PostgreSQL 13+ for database-backed storage
 
 ## Local Setup
@@ -148,24 +148,90 @@ The dashboard is a React/TypeScript SPA served at **`http://<host>:<API_PORT>/da
 
 For development setup, hot-reload, and adding new languages, see [docs/dashboard.md](docs/dashboard.md).
 
-## Docker Deployment
+## Self-hosting
+
+The easiest way to run Free Games Notifier on your own server is with the pre-built Docker image published on [GitHub Container Registry](https://github.com/JulioMoralesB/free-games-notifier/pkgs/container/free-games-notifier). No build step required.
+
+### Prerequisites
+
+- Docker 20.10+
+- Docker Compose v2 (`docker compose`) or Compose v1 (`docker-compose`)
+- A Discord webhook URL — create one via **Server Settings → Integrations → Webhooks**
+- (Optional) PostgreSQL 13+ for database-backed storage; JSON file storage is used otherwise
 
 ### Quick Start
 
+**1. Get the files**
+
 ```bash
-docker-compose up -d
+git clone https://github.com/JulioMoralesB/free-games-notifier.git
+cd free-games-notifier
 ```
 
-### Using Only Docker
+**2. Configure environment variables**
 
 ```bash
-docker build -t free-games-notifier .
+cp .env.example .env
+```
+
+Open `.env` and set at minimum:
+
+```env
+DISCORD_WEBHOOK_URL=https://discordapp.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_TOKEN
+```
+
+The file already includes sensible defaults for `DATA_PATH` (`./data`) and `LOGS_PATH` (`./logs`), which are the host directories Docker will bind-mount for persistent storage and logs. Change them to absolute paths if you prefer a specific location.
+
+Optionally set `REGION` to your IANA timezone string (e.g. `America/Mexico_City`) — this derives timezone, locale, Steam language, and country in one step. See the [Environment Variables Reference](#environment-variables-reference) for all options.
+
+To enable PostgreSQL, uncomment and fill in the `DB_*` variables; otherwise the service uses JSON file storage automatically.
+
+**3. Start the service**
+
+```bash
+docker compose pull   # pull the pre-built image from ghcr.io
+docker compose up -d
+```
+
+Docker Compose creates the `data/` and `logs/` directories and the internal network automatically on first run. The service applies any pending database migrations and begins the scheduling loop. Dashboard and API are available at `http://localhost:8000`.
+
+> **Building from source:** If you prefer to build the image locally (e.g. for development or testing local changes), skip `docker compose pull` and run `docker compose up -d --build` instead.
+
+### Database migrations
+
+When `DB_HOST` is configured, Alembic migrations run **automatically on startup** — no manual step is needed. Migration log lines on first boot are expected. For manual migration commands see [docs/database-migrations.md](docs/database-migrations.md).
+
+### Pinning to a specific version
+
+`compose.yaml` uses `:latest` by default. For reproducible deployments, pin to a specific semver tag:
+
+```yaml
+# compose.yaml
+image: ghcr.io/juliomoralesb/free-games-notifier:1.2.3
+```
+
+Available versions are listed on the [packages page](https://github.com/JulioMoralesB/free-games-notifier/pkgs/container/free-games-notifier).
+
+### Updating
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+This pulls the latest image and restarts the service. Any new migrations run automatically on startup.
+
+### Using only Docker (no Compose)
+
+```bash
 docker run -d \
   --name free-games-notifier \
   -e DISCORD_WEBHOOK_URL="YOUR_WEBHOOK_URL" \
-  -e TIMEZONE=UTC \
-  -e SCHEDULE_TIME=12:00 \
-  free-games-notifier
+  -e REGION=America/New_York \
+  -v /your/data/path:/mnt/data \
+  -v /your/logs/path:/mnt/logs \
+  -p 8000:8000 \
+  ghcr.io/juliomoralesb/free-games-notifier:latest
 ```
 
 ## Environment Variables Reference
@@ -273,5 +339,6 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 - [x] Differentiate DLCs from base games in notifications and dashboard (#109)
 - [x] Store filter in the web dashboard (#115)
 - [x] UI/UX Enhancements: status filter tabs, countdown timer, original price, review scores, expired card styling (#71)
+- [x] Pre-built Docker image on GHCR + self-hosting documentation (#128)
 - [ ] Add support for multiple notification channels (Discord, Slack, Telegram, etc.) (#55)
 
