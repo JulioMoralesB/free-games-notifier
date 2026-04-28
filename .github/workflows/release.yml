@@ -12,6 +12,8 @@ jobs:
     permissions:
       contents: read
       packages: write
+      attestations: write  # required for provenance attestation
+      id-token: write      # required for OIDC token used by attestation signing
 
     steps:
       - name: Checkout code
@@ -37,9 +39,10 @@ jobs:
           images: ghcr.io/juliomoralesb/free-games-notifier
           tags: |
             type=semver,pattern={{version}}
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
 
       - name: Build and push
+        id: build
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -49,3 +52,10 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Generate provenance attestation
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ghcr.io/juliomoralesb/free-games-notifier
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
