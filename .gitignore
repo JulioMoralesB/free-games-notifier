@@ -14,3 +14,7 @@ dashboard/dist
 
 CLAUDE.md
 AGENTS.md
+
+# Saved web-page artifacts (research only — keep out of the repo)
+docs/*.html
+docs/*_files/
