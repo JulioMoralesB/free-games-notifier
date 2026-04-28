@@ -7,7 +7,17 @@ A high-level overview of how the project is structured and how data flows throug
 ```
 .
 ├── main.py                       # Scheduler entry point + API server thread
-├── api.py                        # FastAPI REST API + dashboard static mount
+├── api/                          # FastAPI REST API package
+│   ├── app.py                    #   FastAPI() instance + dashboard mount
+│   ├── auth.py                   #   API key dependency
+│   ├── schemas.py                #   Pydantic request/response models
+│   ├── serializers.py            #   FreeGame ↔ DTO conversion helpers
+│   ├── metrics.py                #   Process-wide counter state
+│   └── routes/                   #   One module per endpoint group
+│       ├── system.py             #     /health, /metrics, /config
+│       ├── games.py              #     /games/latest, /games/history
+│       ├── notifications.py      #     /notify/discord/resend
+│       └── checks.py             #     /check
 ├── config.py                     # Environment variables + region profiles
 ├── requirements.txt              # Python runtime dependencies
 ├── requirements-dev.txt          # Test + lint dependencies
