@@ -59,3 +59,10 @@ jobs:
           subject-name: ghcr.io/juliomoralesb/free-games-notifier
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
+
+      - name: Trigger deploy via n8n
+        if: ${{ !contains(github.ref_name, '-') }}
+        run: |
+          curl -f --max-time 30 -X POST "${{ secrets.N8N_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{"repo":"free-games-notifier","version":"${{ github.ref_name }}","status":"deployed"}'
