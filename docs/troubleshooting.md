@@ -47,5 +47,5 @@ docker logs free-games-notifier
 docker restart free-games-notifier
 
 # Stop and remove
-docker-compose down
+docker compose down
 ```
