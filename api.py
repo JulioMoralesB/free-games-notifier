@@ -1,9 +1,10 @@
 """REST API for the Free Games Notifier service."""
 
+import logging
 import os
 import threading
 import time
-import logging
+from datetime import datetime, timezone
 from typing import List, Optional
 
 import requests as requests_lib
@@ -12,17 +13,15 @@ from fastapi.security import APIKeyHeader
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
-from modules.notifier import validate_discord_webhook_url
-from modules.models import FreeGame
 from config import (
     API_KEY,
+    DATA_FILE_PATH,
+    DATE_FORMAT,
     DB_HOST,
     DB_NAME,
     DB_PASSWORD,
     DB_PORT,
     DB_USER,
-    DATA_FILE_PATH,
-    DATE_FORMAT,
     ENABLE_HEALTHCHECK,
     ENABLED_STORES,
     EPIC_GAMES_API_URL,
@@ -33,7 +32,8 @@ from config import (
     SCHEDULE_TIME,
     TIMEZONE,
 )
-
+from modules.models import FreeGame
+from modules.notifier import validate_discord_webhook_url
 
 # ---------------------------------------------------------------------------
 # Pydantic response models (for OpenAPI / Swagger documentation)
@@ -48,6 +48,9 @@ class GameItem(BaseModel):
     end_date: str = Field(..., description="ISO-8601 timestamp when the free promotion ends", examples=["2024-01-31T15:00:00.000Z"])
     description: str = Field(..., description="Short description of the game")
     thumbnail: str = Field(..., description="URL to the game's thumbnail image")
+    game_type: str = Field("game", description="Content type: 'game' or 'dlc'", examples=["game", "dlc"])
+    original_price: Optional[str] = Field(default=None, description="Original retail price before the free promotion", examples=["$19.99", "€14.99"])
+    review_scores: List[str] = Field(default_factory=list, description="Review scores from available sources", examples=[["Very Positive", "Metascore: 83"]])
 
 
 class HealthResponse(BaseModel):
@@ -166,6 +169,9 @@ def _to_game_item_dict(game) -> dict:
             "end_date": game.end_date,
             "description": game.description,
             "thumbnail": game.image_url,
+            "game_type": game.game_type,
+            "original_price": game.original_price,
+            "review_scores": game.review_scores,
         }
     # Legacy dict format – ensure store key is present with a safe default.
     if isinstance(game, dict) and "store" not in game:
@@ -293,17 +299,61 @@ def games_latest():
 def games_history(
     limit: int = Query(default=20, ge=1, le=100, description="Max number of games to return"),
     offset: int = Query(default=0, ge=0, description="Number of games to skip"),
+    sort_by: str = Query(default="end_date", pattern="^(end_date|title)$", description="Field to sort by"),
+    sort_dir: str = Query(default="desc", pattern="^(asc|desc)$", description="Sort direction"),
+    store: str = Query(default="all", pattern="^(all|epic|steam)$", description="Filter by store: 'all', 'epic', or 'steam'"),
+    status: str = Query(default="all", pattern="^(all|active|expired)$", description="Filter by promotion status: 'all', 'active' (end_date in the future), or 'expired'"),
 ):
     """Paginated access to all past fetched games.
 
     Query parameters:
     - **limit**: Max number of games to return (1–100, default: 20)
     - **offset**: Number of games to skip (default: 0)
+    - **sort_by**: Field to sort by — ``end_date`` (default) or ``title``
+    - **sort_dir**: Sort direction — ``desc`` (default) or ``asc``
+    - **store**: Store filter — ``all`` (default), ``epic``, or ``steam``
+    - **status**: Promotion status filter — ``all`` (default), ``active`` (promotion still live), or ``expired``
+
+    Filtering and sorting are applied to the full dataset **before** pagination
+    so that counts and ordering are consistent across pages.
     """
     from modules.storage import load_previous_games
 
+    def _get_end_date(game) -> datetime:
+        """Return the game's end_date as an aware UTC datetime, or datetime.min on parse error."""
+        try:
+            raw = game.end_date if isinstance(game, FreeGame) else game.get("end_date", "")
+            return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        except Exception:
+            return datetime.min.replace(tzinfo=timezone.utc)
+
+    def _sort_key(game):
+        if sort_by == "title":
+            v = game.title if isinstance(game, FreeGame) else game.get("title", "")
+            return v.lower()
+        # end_date — ISO-8601 strings sort correctly as plain strings
+        return game.end_date if isinstance(game, FreeGame) else game.get("end_date", "")
+
     try:
         all_games = load_previous_games()
+
+        # Apply store filter — legacy dict records without a "store" key default to
+        # "epic" to match the same fallback used in _to_game_item_dict serialization.
+        if store != "all":
+            all_games = [
+                g for g in all_games
+                if (g.store if isinstance(g, FreeGame) else g.get("store", "epic")) == store
+            ]
+
+        # Apply status filter
+        if status != "all":
+            now = datetime.now(timezone.utc)
+            if status == "active":
+                all_games = [g for g in all_games if _get_end_date(g) > now]
+            else:  # expired
+                all_games = [g for g in all_games if _get_end_date(g) <= now]
+
+        all_games.sort(key=_sort_key, reverse=(sort_dir == "desc"))
         total = len(all_games)
         page = all_games[offset : offset + limit]
         return {"games": [_to_game_item_dict(g) for g in page], "total": total, "limit": limit, "offset": offset}
@@ -325,8 +375,8 @@ def games_history(
 )
 def notify_discord_resend(body: Optional[WebhookOverrideRequest] = None):
     """Re-send the last Discord notification batch to the Discord webhook."""
-    from modules.storage import load_last_notification
     from modules.notifier import send_discord_message
+    from modules.storage import load_last_notification
 
     webhook_url = body.webhook_url if body else None
 
@@ -409,9 +459,9 @@ def check_e2e(body: Optional[WebhookOverrideRequest] = None):
     This endpoint runs the full flow even when the games already exist in the
     database so you can test the pipeline without deleting stored data.
     """
+    from modules.notifier import send_discord_message
     from modules.scrapers import get_enabled_scrapers
     from modules.storage import load_previous_games
-    from modules.notifier import send_discord_message
 
     webhook_url = body.webhook_url if body else None
 

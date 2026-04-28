@@ -1,12 +1,12 @@
 import json
 import os
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 from modules import storage
 from modules.database import FreeGamesDatabase
 from modules.models import FreeGame
-
 
 # ---------------------------------------------------------------------------
 # Tests for load_previous_games
@@ -118,7 +118,6 @@ class TestSaveGames:
 
     def test_raises_type_error_on_unserializable_data(self, tmp_path):
         from unittest.mock import patch as _patch
-        from modules.models import FreeGame
         path = str(tmp_path / "games.json")
         game = FreeGame(
             title="Test", store="epic", url="https://example.com", image_url="",

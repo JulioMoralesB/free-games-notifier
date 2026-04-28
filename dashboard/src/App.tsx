@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { GameItem, GamesHistoryResponse, SortField, SortDirection } from './types'
+import type { GameItem, GamesHistoryResponse, SortField, SortDirection, StoreFilter, StatusFilter } from './types'
 import GameCard from './components/GameCard'
 import Pagination from './components/Pagination'
 import LanguageSelector from './components/LanguageSelector'
@@ -15,16 +15,53 @@ export default function App() {
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState<SortField>('end_date')
   const [sortDir, setSortDir] = useState<SortDirection>('desc')
+  const [storeFilter, setStoreFilter] = useState<StoreFilter>(() => {
+    try {
+      return (sessionStorage.getItem('storeFilter') as StoreFilter) || 'all'
+    } catch {
+      // sessionStorage unavailable (restricted privacy settings, etc.)
+      return 'all'
+    }
+  })
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
+    try {
+      return (sessionStorage.getItem('statusFilter') as StatusFilter) || 'all'
+    } catch {
+      // sessionStorage unavailable
+      return 'all'
+    }
+  })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const offset = (page - 1) * PAGE_SIZE
 
+  // Persist filter selections across page refreshes within the same session
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('storeFilter', storeFilter)
+    } catch {
+      // sessionStorage unavailable — persistence is best-effort
+    }
+  }, [storeFilter])
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem('statusFilter', statusFilter)
+    } catch {
+      // sessionStorage unavailable — persistence is best-effort
+    }
+  }, [statusFilter])
+
   const fetchGames = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/games/history?limit=${PAGE_SIZE}&offset=${offset}`)
+      const url =
+        `/games/history?limit=${PAGE_SIZE}&offset=${offset}` +
+        `&sort_by=${sortBy}&sort_dir=${sortDir}` +
+        `&store=${storeFilter}&status=${statusFilter}`
+      const res = await fetch(url)
       if (!res.ok) throw new Error(`Server responded with ${res.status}`)
       const data: GamesHistoryResponse = await res.json()
       setGames(data.games)
@@ -34,7 +71,7 @@ export default function App() {
     } finally {
       setLoading(false)
     }
-  }, [offset])
+  }, [offset, sortBy, sortDir, storeFilter, statusFilter])
 
   useEffect(() => {
     fetchGames()
@@ -53,25 +90,28 @@ export default function App() {
       setSortBy(field)
       setSortDir('desc')
     }
+    setPage(1)
   }
 
-  // Client-side filter + sort on the current page
-  const filtered = games
-    .filter(g => {
-      if (!search) return true
-      const q = search.toLowerCase()
-      return (
-        g.title.toLowerCase().includes(q) ||
-        g.description.toLowerCase().includes(q)
-      )
-    })
-    .sort((a, b) => {
-      const mul = sortDir === 'asc' ? 1 : -1
-      if (sortBy === 'title') return a.title.localeCompare(b.title) * mul
-      return (
-        (new Date(a.end_date).getTime() - new Date(b.end_date).getTime()) * mul
-      )
-    })
+  const handleStoreFilter = (store: StoreFilter) => {
+    setStoreFilter(store)
+    setPage(1)
+  }
+
+  const handleStatusFilter = (status: StatusFilter) => {
+    setStatusFilter(status)
+    setPage(1)
+  }
+
+  // Client-side search filter — sorting and store/status filtering are done server-side
+  const filtered = games.filter(g => {
+    if (!search) return true
+    const q = search.toLowerCase()
+    return (
+      g.title.toLowerCase().includes(q) ||
+      g.description.toLowerCase().includes(q)
+    )
+  })
 
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
@@ -93,6 +133,20 @@ export default function App() {
       )}
     </button>
   )
+
+  const getEmptyIcon = () => {
+    if (search) return '🔍'
+    if (statusFilter === 'active') return '🎮'
+    if (statusFilter === 'expired') return '🏛️'
+    return '🕹️'
+  }
+
+  const getEmptyMessage = () => {
+    if (search) return t.noGamesMatch(search)
+    if (statusFilter === 'active') return t.noActiveGames
+    if (statusFilter === 'expired') return t.noExpiredGames
+    return t.noGamesYet
+  }
 
   return (
     <div className="app">
@@ -117,6 +171,41 @@ export default function App() {
       </header>
 
       <main className="main">
+        {/* Filter bar: status tabs + store pills */}
+        <div className="filter-bar">
+          <div className="filter-group">
+            <span className="filter-label">{t.statusFilterLabel}</span>
+            <div className="filter-tabs">
+              {(['all', 'active', 'expired'] as StatusFilter[]).map(s => (
+                <button
+                  key={s}
+                  className={`filter-tab${statusFilter === s ? ' active' : ''}`}
+                  onClick={() => handleStatusFilter(s)}
+                  aria-pressed={statusFilter === s}
+                >
+                  {s === 'all' ? t.statusAll : s === 'active' ? t.statusActive : t.statusExpired}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="filter-group">
+            <span className="filter-label">{t.storeFilterLabel}</span>
+            <div className="filter-tabs">
+              {(['all', 'epic', 'steam'] as StoreFilter[]).map(s => (
+                <button
+                  key={s}
+                  className={`filter-tab${storeFilter === s ? ' active' : ''}`}
+                  onClick={() => handleStoreFilter(s)}
+                  aria-pressed={storeFilter === s}
+                >
+                  {s === 'all' ? t.storeAll : s === 'epic' ? t.storeEpic : t.storeSteam}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
         <div className="toolbar">
           <div className="search-wrapper">
             <span className="search-icon">🔍</span>
@@ -164,12 +253,8 @@ export default function App() {
 
         {!loading && !error && filtered.length === 0 && (
           <div className="state-container">
-            <span className="state-icon">🕹️</span>
-            <p>
-              {search
-                ? t.noGamesMatch(search)
-                : t.noGamesYet}
-            </p>
+            <span className="state-icon">{getEmptyIcon()}</span>
+            <p>{getEmptyMessage()}</p>
           </div>
         )}
 

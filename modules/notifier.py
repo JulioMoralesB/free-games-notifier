@@ -1,13 +1,15 @@
-from config import DISCORD_WEBHOOK_URL, TIMEZONE, LOCALE, DATE_FORMAT, EPIC_GAMES_REGION
-import requests
+import locale
+import logging
 from datetime import datetime
 from typing import Optional
-import pytz
-import locale
 from urllib.parse import urlparse
+
+import pytz
+import requests
+
+from config import DATE_FORMAT, DISCORD_WEBHOOK_URL, EPIC_GAMES_REGION, LOCALE, TIMEZONE
 from modules.retry import with_retry
 
-import logging
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -20,9 +22,13 @@ _TRANSLATIONS = {
         "permanently_free": "Permanently free",
         "end_date_unavailable": "End date unavailable",
         "original_price": "💰 Original Price",
-        "user_reviews": "💬 User Reviews:",
+        "user_reviews": "💬 Steam Reviews:",
+        "metacritic_reviews": "📊 Metacritic:",
         "new_free_game": "**New Free Game on {store}! 🎮**\n",
         "new_free_games": "**New Free Games! 🎮**\n",
+        "new_free_dlc": "**New Free DLC on {store}! 🎮**\n",
+        "dlc_badge": "📦 DLC",
+        "requires_base_game": "Requires the base game",
         "review_labels": {
             "overwhelmingly positive": "Overwhelmingly Positive",
             "very positive": "Very Positive",
@@ -41,9 +47,13 @@ _TRANSLATIONS = {
         "permanently_free": "Gratis de forma permanente",
         "end_date_unavailable": "Fecha de fin no disponible",
         "original_price": "💰 Precio original",
-        "user_reviews": "💬 Opiniones de usuarios:",
+        "user_reviews": "💬 Reseñas en Steam:",
+        "metacritic_reviews": "📊 Metacritic:",
         "new_free_game": "**¡Nuevo Juego Gratis en {store}! 🎮**\n",
         "new_free_games": "**¡Nuevos Juegos Gratis! 🎮**\n",
+        "new_free_dlc": "**¡Nuevo DLC Gratis en {store}! 🎮**\n",
+        "dlc_badge": "📦 DLC",
+        "requires_base_game": "Requiere el juego base",
         "review_labels": {
             "overwhelmingly positive": "Extremadamente Positivo",
             "very positive": "Muy Positivo",
@@ -54,7 +64,7 @@ _TRANSLATIONS = {
             "negative": "Negativo",
             "very negative": "Muy Negativo",
             "overwhelmingly negative": "Extremadamente Negativo",
-            "no user reviews": "Sin opiniones de usuarios",
+            "no user reviews": "Sin reseñas",
         },
     },
 }
@@ -148,13 +158,13 @@ def _get_safe_webhook_identifier(webhook_url: str) -> str:
 def send_discord_message(new_games, webhook_url: Optional[str] = None):
     """
     Send a Discord webhook message for new free games.
-    
+
     Args:
         new_games: List of game dictionaries to send to Discord
         webhook_url: Optional webhook URL override. Defaults to DISCORD_WEBHOOK_URL.
             Must be a valid Discord webhook URL on either discord.com or discordapp.com
             (e.g. https://discord.com/api/webhooks/... or https://discordapp.com/api/webhooks/...).
-        
+
     Raises:
         ValueError: If webhook URL is not configured or fails validation
         requests.RequestException: If the HTTP request fails
@@ -178,7 +188,7 @@ def send_discord_message(new_games, webhook_url: Optional[str] = None):
     # Validate user-supplied webhook URLs to prevent SSRF
     if webhook_url is not None:
         validate_discord_webhook_url(effective_webhook_url)
-    
+
     try:
         _STORE_META = {
             "epic": {
@@ -241,6 +251,12 @@ def send_discord_message(new_games, webhook_url: Optional[str] = None):
                     footer_text = _T["end_date_unavailable"]
 
                 fields = []
+                if game.game_type == "dlc":
+                    fields.append({
+                        "name": _T["dlc_badge"],
+                        "value": _T["requires_base_game"],
+                        "inline": True,
+                    })
                 if game.original_price:
                     fields.append({
                         "name": _T["original_price"],
@@ -267,7 +283,7 @@ def send_discord_message(new_games, webhook_url: Optional[str] = None):
                 }
                 if fields:
                     embed["fields"] = fields
-                if game.review_score:
+                if game.review_scores:
                     _REVIEW_EMOJIS = {
                         "overwhelmingly positive": "🏆",
                         "very positive": "⭐",
@@ -279,20 +295,51 @@ def send_discord_message(new_games, webhook_url: Optional[str] = None):
                         "very negative": "⛔",
                         "overwhelmingly negative": "💀",
                     }
-                    key = game.review_score.lower()
-                    emoji = _REVIEW_EMOJIS.get(key, "🎮")
-                    label = _T["review_labels"].get(key, game.review_score)
-                    embed["description"] += f"\n\n{_T['user_reviews']}\n{label} {emoji}\n\n"
+
+                    def _critic_emoji(score_val: int) -> str:
+                        if score_val >= 90:
+                            return "🏆"
+                        if score_val >= 75:
+                            return "⭐"
+                        if score_val >= 61:
+                            return "👍"
+                        if score_val >= 40:
+                            return "⚖️"
+                        return "👎"
+
+                    score_lines = []
+                    for score_str in game.review_scores:
+                        if score_str.startswith("Metascore: "):
+                            try:
+                                val = int(score_str.split(": ", 1)[1])
+                                score_lines.append(
+                                    f"{_T['metacritic_reviews']} {score_str} {_critic_emoji(val)}"
+                                )
+                            except (ValueError, IndexError):
+                                score_lines.append(f"{_T['metacritic_reviews']} {score_str}")
+                        else:
+                            # Steam-style user review label
+                            key = score_str.lower()
+                            emoji = _REVIEW_EMOJIS.get(key, "🎮")
+                            label = _T["review_labels"].get(key, score_str)
+                            score_lines.append(f"{_T['user_reviews']} {label} {emoji}")
+
+                    if score_lines:
+                        embed["description"] += "\n\n" + "\n".join(score_lines) + "\n\n"
                 embeds.append(embed)
             except (AttributeError, ValueError) as e:
                 logger.error(f"Error processing game data for embed: {str(e)} | Game data: {game}")
                 raise
-            
+
         stores_in_batch = {game.store for game in new_games}
+        all_dlcs = all(g.game_type == "dlc" for g in new_games)
         if len(stores_in_batch) == 1:
             store_key = next(iter(stores_in_batch))
             store_name = _STORE_META.get(store_key, _STORE_META["epic"])["name"]
-            content = _T["new_free_game"].format(store=store_name)
+            if all_dlcs:
+                content = _T["new_free_dlc"].format(store=store_name)
+            else:
+                content = _T["new_free_game"].format(store=store_name)
         else:
             content = _T["new_free_games"]
 
@@ -325,8 +372,8 @@ def send_discord_message(new_games, webhook_url: Optional[str] = None):
             }
             logger.error(f"Discord API returned non-success status: {error_context}")
             response.raise_for_status()  # Raise exception for bad status codes
-            
-    except requests.exceptions.Timeout as e:
+
+    except requests.exceptions.Timeout:
         safe_webhook_id = _get_safe_webhook_identifier(effective_webhook_url)
         logger.error(
             f"Discord request timed out (10s per-attempt limit, all attempts exhausted) | Webhook identifier: {safe_webhook_id} | Games: {len(new_games)}"
@@ -347,4 +394,4 @@ def send_discord_message(new_games, webhook_url: Optional[str] = None):
     except Exception as e:
         logger.error(f"Unexpected error sending Discord message: {str(e)} | Games: {len(new_games)}")
         raise
-    
+

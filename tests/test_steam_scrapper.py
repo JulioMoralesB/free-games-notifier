@@ -1,7 +1,8 @@
-import pytest
-from unittest.mock import patch, MagicMock
-from datetime import datetime as _real_datetime, timezone as _utc_tz
+from datetime import datetime as _real_datetime
+from datetime import timezone as _utc_tz
+from unittest.mock import MagicMock, patch
 
+import pytest
 import requests as req
 
 from modules.scrapers.steam import SteamScraper, _parse_steam_end_date
@@ -83,11 +84,12 @@ def _make_search_html(games=None):
     </body></html>"""
 
 
-def _make_appdetails_response(appid, short_description="A test game.", header_image="https://example.com/header.jpg"):
+def _make_appdetails_response(appid, short_description="A test game.", header_image="https://example.com/header.jpg", app_type="game"):
     return {
         appid: {
             "success": True,
             "data": {
+                "type": app_type,
                 "short_description": short_description,
                 "header_image": header_image,
             },
@@ -130,6 +132,21 @@ def _multi_url_mock(appid="978520"):
     return side_effect
 
 
+def _multi_url_mock_with_desc(description: str, appid="978520"):
+    """Like _multi_url_mock but injects a custom short_description."""
+    def side_effect(url, **kwargs):
+        if "search" in url:
+            return _mock_response(200, text=_make_search_html())
+        if "appdetails" in url:
+            return _mock_response(200, json_data=_make_appdetails_response(appid, short_description=description))
+        if "appreviews" in url:
+            return _mock_response(200, json_data=_make_appreviews_response())
+        if "store.steampowered.com/app/" in url:
+            return _mock_response(200, text=_STORE_PAGE_HTML)
+        return _mock_response(404)
+    return side_effect
+
+
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
@@ -138,6 +155,12 @@ class TestSteamScraper:
     @pytest.fixture(autouse=True)
     def no_sleep(self):
         with patch("modules.scrapers.steam.time.sleep"):
+            yield
+
+    @pytest.fixture(autouse=True)
+    def no_review_sources(self):
+        """Suppress external Metacritic requests in all Steam scraper tests."""
+        with patch("modules.scrapers.steam.fetch_metacritic_score", return_value=None):
             yield
 
     def test_store_name(self):
@@ -155,7 +178,7 @@ class TestSteamScraper:
         assert g.original_price == "$19.99"
         assert g.description == "A test game."
         assert g.image_url == "https://example.com/header.jpg"
-        assert g.review_score == "Mostly Positive"
+        assert "Mostly Positive" in g.review_scores
         assert g.is_permanent is False
         # "23 Apr @ 10:00am" Pacific = 10:00 PDT (UTC-7) = 17:00 UTC
         assert "2026-04-23T17:00:00" in g.end_date
@@ -254,7 +277,7 @@ class TestSteamScraper:
             games = SteamScraper().fetch_free_games()
 
         assert len(games) == 1
-        assert games[0].review_score is None
+        assert games[0].review_scores == []
 
     def test_multiple_free_games_returned(self):
         games_data = [
@@ -355,6 +378,16 @@ class TestSteamScraper:
         assert len(games) == 1
         # "23 Apr @ 10:00am" Pacific = 10:00 PDT (UTC-7) = 17:00 UTC
         assert "2026-04-23T17:00:00" in games[0].end_date
+
+    def test_html_entities_in_description_are_decoded(self, freeze_steam_now):
+        """HTML entities in short_description (e.g. &quot;) are unescaped before use."""
+        with patch("modules.scrapers.steam.requests.get",
+                   side_effect=_multi_url_mock_with_desc('&quot;8AM&quot; is a suspense game.')):
+            games = SteamScraper().fetch_free_games()
+
+        assert len(games) == 1
+        assert games[0].description == '"8AM" is a suspense game.'
+        assert "&quot;" not in games[0].description
 
     def test_appdetails_uses_configured_language(self):
         """_fetch_appdetails passes STEAM_LANGUAGE as the l= param to the API."""
@@ -498,3 +531,89 @@ class TestParseSteamEndDate:
         result = _parse_steam_end_date(text)
         # 10:00am PDT (UTC-7) = 17:00 UTC
         assert result.startswith("2026-04-23T17:00:00")
+
+
+# ---------------------------------------------------------------------------
+# DLC detection tests
+# ---------------------------------------------------------------------------
+
+class TestDlcDetection:
+    """Tests that game_type is read from the appdetails API 'type' field."""
+
+    @pytest.fixture(autouse=True)
+    def no_sleep(self):
+        with patch("modules.scrapers.steam.time.sleep"):
+            yield
+
+    def test_fetch_free_games_returns_dlc_when_appdetails_type_is_dlc(self, freeze_steam_now):
+        """Full pipeline: appdetails type='dlc' produces a FreeGame with game_type='dlc'."""
+        appid = "978520"
+
+        def side_effect(url, **kwargs):
+            if "search" in url:
+                return _mock_response(200, text=_make_search_html())
+            if "appdetails" in url:
+                return _mock_response(200, json_data=_make_appdetails_response(appid, app_type="dlc"))
+            if "appreviews" in url:
+                return _mock_response(200, json_data=_make_appreviews_response())
+            if "store.steampowered.com/app/" in url:
+                return _mock_response(200, text=_STORE_PAGE_HTML)
+            return _mock_response(404)
+
+        with patch("modules.scrapers.steam.requests.get", side_effect=side_effect):
+            games = SteamScraper().fetch_free_games()
+
+        assert len(games) == 1
+        assert games[0].game_type == "dlc"
+
+    def test_fetch_free_games_returns_game_when_appdetails_type_is_game(self, freeze_steam_now):
+        """Full pipeline: appdetails type='game' produces a FreeGame with game_type='game'."""
+        with patch("modules.scrapers.steam.requests.get", side_effect=_multi_url_mock()):
+            games = SteamScraper().fetch_free_games()
+
+        assert len(games) == 1
+        assert games[0].game_type == "game"
+
+    def test_fetch_free_games_defaults_to_game_when_type_absent(self, freeze_steam_now):
+        """Full pipeline: missing 'type' in appdetails defaults to game_type='game'."""
+        appid = "978520"
+
+        def side_effect(url, **kwargs):
+            if "search" in url:
+                return _mock_response(200, text=_make_search_html())
+            if "appdetails" in url:
+                # Response without a 'type' field
+                data = {appid: {"success": True, "data": {"short_description": "A game.", "header_image": "https://example.com/img.jpg"}}}
+                return _mock_response(200, json_data=data)
+            if "appreviews" in url:
+                return _mock_response(200, json_data=_make_appreviews_response())
+            if "store.steampowered.com/app/" in url:
+                return _mock_response(200, text=_STORE_PAGE_HTML)
+            return _mock_response(404)
+
+        with patch("modules.scrapers.steam.requests.get", side_effect=side_effect):
+            games = SteamScraper().fetch_free_games()
+
+        assert len(games) == 1
+        assert games[0].game_type == "game"
+
+    def test_fetch_free_games_normalises_unknown_type_to_game(self, freeze_steam_now):
+        """Unexpected 'type' values (e.g. 'music') are normalised to 'game'."""
+        appid = "978520"
+
+        def side_effect(url, **kwargs):
+            if "search" in url:
+                return _mock_response(200, text=_make_search_html())
+            if "appdetails" in url:
+                return _mock_response(200, json_data=_make_appdetails_response(appid, app_type="music"))
+            if "appreviews" in url:
+                return _mock_response(200, json_data=_make_appreviews_response())
+            if "store.steampowered.com/app/" in url:
+                return _mock_response(200, text=_STORE_PAGE_HTML)
+            return _mock_response(404)
+
+        with patch("modules.scrapers.steam.requests.get", side_effect=side_effect):
+            games = SteamScraper().fetch_free_games()
+
+        assert len(games) == 1
+        assert games[0].game_type == "game"

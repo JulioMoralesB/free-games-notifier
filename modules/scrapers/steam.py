@@ -1,10 +1,12 @@
 """Steam store scraper implementation."""
 
+import html
 import logging
 import re
 import time
 from datetime import datetime, timezone
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 import requests
 from bs4 import BeautifulSoup
@@ -13,8 +15,7 @@ from config import STEAM_COUNTRY, STEAM_LANGUAGE, STEAM_REQUEST_DELAY_MS, STEAM_
 from modules.models import FreeGame
 from modules.retry import with_retry
 from modules.scrapers.base import BaseScraper
-
-from zoneinfo import ZoneInfo
+from modules.scrapers.review_sources import fetch_metacritic_score
 
 logger = logging.getLogger(__name__)
 
@@ -184,9 +185,11 @@ class SteamScraper(BaseScraper):
                 continue
 
             title_el = row.select_one(".title")
+            title_str = title_el.text.strip() if title_el else ""
+            logger.info("Free candidate detected: %r | appid=%s", title_str, appid)
             candidates.append({
                 "appid": appid,
-                "title": title_el.text.strip() if title_el else "",
+                "title": title_str,
                 "url": row.get("href", "").split("?")[0],
                 "original_price": original_el.text.strip(),
             })
@@ -194,28 +197,53 @@ class SteamScraper(BaseScraper):
         return candidates
 
     def _build_game(self, candidate: dict) -> FreeGame:
-        """Enrich a candidate with app details and review score, then return a FreeGame."""
+        """Enrich a candidate with app details and review scores, then return a FreeGame."""
         appid = candidate["appid"]
+        title = candidate["title"]
         details = self._fetch_appdetails(appid)
-        review_score = self._fetch_review_score(appid)
 
         image_url = details.get("header_image") or (
             f"https://shared.akamai.steamstatic.com/store_item_assets"
             f"/steam/apps/{appid}/capsule_sm_120.jpg"
         )
         end_date = self._fetch_end_date(candidate["url"])
+        if not end_date:
+            logger.error(
+                "END DATE MISSING for Steam game %r (appid=%s, url=%s). "
+                "Game will be stored with empty end_date — check the store page manually.",
+                title, appid, candidate["url"],
+            )
 
-        logger.info("Built free game: %s (appid=%s, review=%s)", candidate["title"], appid, review_score)
+        # The appdetails API returns a "type" field: "game", "dlc", "music", etc.
+        # This is more reliable than inferring from search-result CSS classes.
+        game_type = details.get("type", "game")
+        if game_type not in ("game", "dlc"):
+            game_type = "game"
+
+        # Collect review scores from all available sources.
+        review_scores: list[str] = []
+        steam_score = self._fetch_review_score(appid)
+        if steam_score:
+            review_scores.append(steam_score)
+        mc = fetch_metacritic_score(title)
+        if mc:
+            review_scores.append(mc)
+
+        logger.info(
+            "Built free game: %s (appid=%s, reviews=%s, type=%s)",
+            title, appid, review_scores, game_type,
+        )
         return FreeGame(
-            title=candidate["title"],
+            title=title,
             store=self.store_name,
             url=candidate["url"],
             image_url=image_url,
             original_price=candidate["original_price"],
             end_date=end_date,
             is_permanent=False,
-            description=details.get("short_description", ""),
-            review_score=review_score,
+            description=html.unescape(details.get("short_description", "")),
+            review_scores=review_scores,
+            game_type=game_type,
         )
 
     def _fetch_appdetails(self, appid: str) -> dict:
@@ -265,8 +293,9 @@ class SteamScraper(BaseScraper):
                 result = _parse_steam_end_date(el.text)
                 if result:
                     return result
-                logger.warning(
-                    "Found .game_purchase_discount_quantity but could not parse end date. "
+                logger.error(
+                    "Found .game_purchase_discount_quantity but regex did not match — "
+                    "Steam may have changed the date format. "
                     "Text: %r | URL: %s",
                     el.text[:200],
                     url,
@@ -278,10 +307,14 @@ class SteamScraper(BaseScraper):
             if result:
                 return result
 
-            logger.warning("Could not find promotion end date on Steam page: %s", url)
+            logger.error(
+                "Could not find promotion end date on Steam page: %s — "
+                "page may use a different layout or the element is JS-rendered.",
+                url,
+            )
             return ""
         except Exception as e:
-            logger.warning("Failed to fetch end date from %s: %s", url, e)
+            logger.error("Failed to fetch end date from %s: %s", url, e)
             return ""
 
     def _fetch_review_score(self, appid: str) -> Optional[str]:

@@ -1,8 +1,9 @@
 """Tests for the REGION-based config derivation in config.py."""
-import pytest
 from unittest.mock import patch
 
-from config import _region_get, _resolve, _REGION_PROFILES
+import pytest
+
+from config import _REGION_PROFILES, _region_get, _resolve
 
 
 class TestRegionGet:

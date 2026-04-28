@@ -1,0 +1,22 @@
+# Ruff linter configuration
+# Run locally: ruff check .
+# Run with auto-fix: ruff check --fix .
+
+line-length = 120
+
+[lint]
+# E/W = pycodestyle errors/warnings
+# F   = pyflakes (undefined names, unused imports, etc.)
+# I   = isort (import ordering)
+select = ["E", "W", "F", "I"]
+
+ignore = [
+    "E501",  # line too long — enforced by line-length above, but some strings are intentionally long
+]
+
+# Don't lint generated files or local scratch dirs
+exclude = [
+    "alembic/versions/",
+    ".venv/",
+    "dashboard/",
+]

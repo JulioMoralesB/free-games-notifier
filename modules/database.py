@@ -1,10 +1,11 @@
 import json
+import logging
+
 import psycopg2
 
-from config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
+from config import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
 from modules.models import FreeGame
 
-import logging
 logger = logging.getLogger(__name__)
 
 class FreeGamesDatabase:
@@ -76,7 +77,7 @@ class FreeGamesDatabase:
                     cursor.execute("SET search_path TO free_games")
                     cursor.execute(
                         "SELECT title, link, description, thumbnail, "
-                        "promotion_end_date, review_score, store FROM games"
+                        "promotion_end_date, review_scores, store, game_type FROM games"
                     )
                     rows = cursor.fetchall()
                     games = [
@@ -89,9 +90,14 @@ class FreeGamesDatabase:
                             end_date=end_date or "",
                             is_permanent=False,
                             description=description or "",
-                            review_score=review_score,
+                            review_scores=(
+                                json.loads(review_scores)
+                                if review_scores
+                                else []
+                            ),
+                            game_type=game_type or "game",
                         )
-                        for title, link, description, thumbnail, end_date, review_score, store in rows
+                        for title, link, description, thumbnail, end_date, review_scores, store, game_type in rows
                     ]
                     logger.debug(f"Retrieved {len(games)} games from database.")
                     return games
@@ -122,16 +128,17 @@ class FreeGamesDatabase:
                         cursor.execute(
                             """
                             INSERT INTO games (game_id, title, link, description, thumbnail,
-                                               promotion_end_date, review_score, store)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                                               promotion_end_date, review_scores, store, game_type)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                             ON CONFLICT (game_id) DO UPDATE SET
                                 title = EXCLUDED.title,
                                 link = EXCLUDED.link,
                                 description = EXCLUDED.description,
                                 thumbnail = EXCLUDED.thumbnail,
                                 promotion_end_date = EXCLUDED.promotion_end_date,
-                                review_score = EXCLUDED.review_score,
-                                store = EXCLUDED.store
+                                review_scores = EXCLUDED.review_scores,
+                                store = EXCLUDED.store,
+                                game_type = EXCLUDED.game_type
                             """,
                             (
                                 game_id,
@@ -140,8 +147,9 @@ class FreeGamesDatabase:
                                 game.description,
                                 game.image_url,
                                 game.end_date or None,
-                                game.review_score,
+                                json.dumps(game.review_scores),
                                 game.store,
+                                game.game_type,
                             ),
                         )
                     conn.commit()
@@ -149,7 +157,7 @@ class FreeGamesDatabase:
         except Exception as e:
             logger.error(f"Failed to save games to database: {e}")
             raise
-    
+
     def insert_game(self, game):
         """Insert a game record into the database.
 
@@ -221,7 +229,7 @@ class FreeGamesDatabase:
         try:
             with psycopg2.connect(**self.conn_params) as conn:
                 with conn.cursor() as cursor:
-                    
+
                     # Set schema for this connection
                     cursor.execute("SET search_path to free_games")
 
@@ -232,7 +240,7 @@ class FreeGamesDatabase:
         except Exception as e:
             logger.error(f"Failed to retrieve games: {e}")
             return []
-    
+
     def save_last_notification(self, games):
         """Persist the last-sent notification batch as a JSON blob (single-row upsert)."""
         try:

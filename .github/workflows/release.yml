@@ -1,0 +1,73 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+jobs:
+  release:
+    name: Build and push Docker image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write  # required for provenance attestation
+      id-token: write      # required for OIDC token used by attestation signing
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/juliomoralesb/free-games-notifier
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=${{ !contains(github.ref_name, '-') }}
+
+      - name: Build and push
+        id: build
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Generate provenance attestation
+        uses: actions/attest-build-provenance@v1
+        with:
+          subject-name: ghcr.io/juliomoralesb/free-games-notifier
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      - name: Trigger deploy via n8n
+        if: ${{ !contains(github.ref_name, '-') && secrets.N8N_WEBHOOK_URL != '' && secrets.N8N_WEBHOOK_SECRET != '' }}
+        env:
+          N8N_URL: ${{ secrets.N8N_WEBHOOK_URL }}
+          N8N_SECRET: ${{ secrets.N8N_WEBHOOK_SECRET }}
+          VERSION: ${{ github.ref_name }}
+        run: |
+          curl -f --max-time 30 -X POST "$N8N_URL" \
+            -H "Content-Type: application/json" \
+            -H "X-Webhook-Secret: $N8N_SECRET" \
+            -d "{\"repo\":\"free-games-notifier\",\"version\":\"${VERSION}\",\"status\":\"deployed\"}"

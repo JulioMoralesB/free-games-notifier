@@ -1,17 +1,17 @@
 # Free Games Notifier
 
-A Python-based scheduler that monitors the Epic Games Store for free game promotions and sends Discord notifications. Runs as a Docker container with health check support, optional PostgreSQL integration, a REST API, and a built-in web dashboard.
+A Python-based scheduler that monitors the Epic Games Store and Steam for free game promotions and sends Discord notifications. Runs as a Docker container with health check support, optional PostgreSQL integration, a REST API, and a built-in web dashboard.
 
 ## Features
 
-- ✅ **Daily Monitoring**: Automatically checks Epic Games Store at a configurable time (default: 12:00 UTC) for new free games
-- 💬 **Discord Notifications**: Sends beautifully formatted Discord embeds with game details
+- ✅ **Multi-Store Monitoring**: Checks Epic Games Store and Steam for free games — on a daily schedule or a configurable repeating interval
+- 💬 **Discord Notifications**: Sends beautifully formatted Discord embeds with game details, original price, and review scores (Steam user reviews + Metacritic)
 - 📊 **Persistent Storage**: Maintains game history — PostgreSQL when `DB_HOST` is set, JSON file otherwise
 - 🏥 **Health Checks**: Optional UptimeKuma/Healthchecks.io integration for monitoring
-- 🌐 **Web Dashboard**: Browse and search the full history of tracked free games at `/dashboard/`
+- 🌐 **Web Dashboard**: Browse, filter, and search the full history of tracked free games at `/dashboard/`
 - 🔌 **REST API**: Built-in FastAPI endpoints for health, history, metrics, and notification management
 - 🐳 **Docker Ready**: Includes Docker and docker-compose configurations
-- 🌍 **Fully Configurable**: Timezone, locale, region, schedule time, and health check interval are all configurable via environment variables
+- 🌍 **Fully Configurable**: Set `REGION` to a single IANA timezone string and get timezone, locale, Steam language, and Steam country all at once — or configure each variable individually
 
 ## Prerequisites
 
@@ -23,7 +23,7 @@ A Python-based scheduler that monitors the Epic Games Store for free game promot
 
 ### Docker Deployment
 - Docker 20.10+
-- Docker Compose 1.29+
+- Docker Compose v2+ (`docker compose`) or Compose v1 (`docker-compose`)
 - (Optional) PostgreSQL 13+ for database-backed storage
 
 ## Local Setup
@@ -63,10 +63,8 @@ DB_NAME=free_games
 DB_USER=postgres
 DB_PASSWORD=your_password
 
-# Optional: Timezone / locale / region
-TIMEZONE=UTC
-LOCALE=en_US.UTF-8
-EPIC_GAMES_REGION=en-US
+# Optional: Unified region (derives timezone, locale, Steam language & country automatically)
+REGION=America/New_York
 
 # Optional: Scheduler
 SCHEDULE_TIME=12:00
@@ -137,55 +135,128 @@ The dashboard is a React/TypeScript SPA served at **`http://<host>:<API_PORT>/da
 
 ![Web Dashboard](https://github.com/user-attachments/assets/1ffef230-45e2-4ef1-9ffb-6a7a9d573d62)
 
-- Game cards with thumbnail, title, description, promotion end date, and Epic Games Store link
-- Live search by title or description
+- Game cards with thumbnail, title, description, original price, review scores, and promotion end date
+- **Status filter**: tabs to view "Currently Free", "Previously Free", or all games
+- **Store filter**: pill buttons to filter by All / Epic Games / Steam
+- Countdown timer on active promotions; expired cards are visually dimmed
+- Live search by title or description (client-side, within the current page)
 - Sort by date or title
-- Server-side pagination with smart ellipsis
+- Server-side pagination with smart ellipsis (filters applied before paginating)
 - Responsive dark theme, no external UI framework
 - English and Spanish built-in; browser language auto-detected; preference persisted in `localStorage`
+- Filter selections (status, store) persisted in `sessionStorage`
 
 For development setup, hot-reload, and adding new languages, see [docs/dashboard.md](docs/dashboard.md).
 
-## Docker Deployment
+## Self-hosting
+
+The easiest way to run Free Games Notifier on your own server is with the pre-built Docker image published on [GitHub Container Registry](https://github.com/JulioMoralesB/free-games-notifier/pkgs/container/free-games-notifier). No build step required.
+
+### Prerequisites
+
+- Docker 20.10+
+- Docker Compose v2 (`docker compose`) or Compose v1 (`docker-compose`)
+- A Discord webhook URL — create one via **Server Settings → Integrations → Webhooks**
+- (Optional) PostgreSQL 13+ for database-backed storage; JSON file storage is used otherwise
 
 ### Quick Start
 
+**1. Get the files**
+
 ```bash
-docker-compose up -d
+git clone https://github.com/JulioMoralesB/free-games-notifier.git
+cd free-games-notifier
 ```
 
-### Using Only Docker
+**2. Configure environment variables**
 
 ```bash
-docker build -t free-games-notifier .
+cp .env.example .env
+```
+
+Open `.env` and set at minimum:
+
+```env
+DISCORD_WEBHOOK_URL=https://discordapp.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_TOKEN
+```
+
+The file already includes sensible defaults for `DATA_PATH` (`./data`) and `LOGS_PATH` (`./logs`), which are the host directories Docker will bind-mount for persistent storage and logs. Change them to absolute paths if you prefer a specific location.
+
+Optionally set `REGION` to your IANA timezone string (e.g. `America/Mexico_City`) — this derives timezone, locale, Steam language, and country in one step. See the [Environment Variables Reference](#environment-variables-reference) for all options.
+
+To enable PostgreSQL, uncomment and fill in the `DB_*` variables; otherwise the service uses JSON file storage automatically.
+
+**3. Start the service**
+
+```bash
+docker compose pull   # pull the pre-built image from ghcr.io
+docker compose up -d
+```
+
+Docker Compose creates the `data/` and `logs/` directories and the internal network automatically on first run. The service applies any pending database migrations and begins the scheduling loop. Dashboard and API are available at `http://localhost:8000`.
+
+> **Building from source:** If you prefer to build the image locally (e.g. for development or testing local changes), skip `docker compose pull` and run `docker compose up -d --build` instead.
+
+### Database migrations
+
+When `DB_HOST` is configured, Alembic migrations run **automatically on startup** — no manual step is needed. Migration log lines on first boot are expected. For manual migration commands see [docs/database-migrations.md](docs/database-migrations.md).
+
+### Pinning to a specific version
+
+`compose.yaml` uses `:latest` by default. For reproducible deployments, pin to a specific semver tag:
+
+```yaml
+# compose.yaml
+image: ghcr.io/juliomoralesb/free-games-notifier:1.2.3
+```
+
+Available versions are listed on the [packages page](https://github.com/JulioMoralesB/free-games-notifier/pkgs/container/free-games-notifier).
+
+### Updating
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+This pulls the latest image and restarts the service. Any new migrations run automatically on startup.
+
+### Using only Docker (no Compose)
+
+```bash
 docker run -d \
   --name free-games-notifier \
   -e DISCORD_WEBHOOK_URL="YOUR_WEBHOOK_URL" \
-  -e TIMEZONE=UTC \
-  -e SCHEDULE_TIME=12:00 \
-  free-games-notifier
+  -e REGION=America/New_York \
+  -v /your/data/path:/mnt/data \
+  -v /your/logs/path:/mnt/logs \
+  -p 8000:8000 \
+  ghcr.io/juliomoralesb/free-games-notifier:latest
 ```
 
 ## Environment Variables Reference
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `DISCORD_WEBHOOK_URL` | ✅ Yes | - | Discord webhook URL for sending notifications |
-| `EPIC_GAMES_API_URL` | ❌ No | Official API | Epic Games Store API endpoint |
+| `DISCORD_WEBHOOK_URL` | ✅ Yes | — | Discord webhook URL for sending notifications |
 | `ENABLED_STORES` | ❌ No | `epic` | Comma-separated list of stores to scrape. Supported: `epic`, `steam` (e.g. `epic,steam`) |
-| `STEAM_REQUEST_DELAY_MS` | ❌ No | `1500` | Milliseconds to wait between Steam HTTP requests to avoid rate limiting |
-| `STEAM_LANGUAGE` | ❌ No | `english` | Language for Steam game descriptions (e.g. `spanish`, `french`, `german`). Falls back to English if no translation exists. Full list: [Steam localization languages](https://partner.steamgames.com/doc/store/localization/languages) |
-| `HEALTHCHECK_URL` | ❌ No | - | Healthchecks.io or UptimeKuma ping URL |
+| `EPIC_GAMES_API_URL` | ❌ No | Official API | Epic Games Store API endpoint override |
+| `HEALTHCHECK_URL` | ❌ No | — | Healthchecks.io or UptimeKuma ping URL |
 | `ENABLE_HEALTHCHECK` | ❌ No | `false` | Enable health check pings (`true`/`false`) |
-| `DB_HOST` | ❌ No | - | PostgreSQL host (leave empty to use file storage) |
+| `DB_HOST` | ❌ No | — | PostgreSQL host (leave empty to use file storage) |
 | `DB_PORT` | ❌ No | `5432` | PostgreSQL port |
-| `DB_NAME` | ❌ No | - | PostgreSQL database name |
-| `DB_USER` | ❌ No | - | PostgreSQL username |
-| `DB_PASSWORD` | ❌ No | - | PostgreSQL password |
-| `TIMEZONE` | ❌ No | `UTC` | IANA timezone name (e.g. `America/New_York`, `Europe/London`) |
-| `LOCALE` | ❌ No | `en_US.UTF-8` | Locale for date formatting (e.g. `es_ES.UTF-8`, `de_DE.UTF-8`) |
-| `EPIC_GAMES_REGION` | ❌ No | `en-US` | Region code for Epic Games Store links (e.g. `es-MX`, `de-DE`) |
-| `SCHEDULE_TIME` | ❌ No | `12:00` | Daily check time in `HH:MM`, interpreted in `TIMEZONE` |
+| `DB_NAME` | ❌ No | — | PostgreSQL database name |
+| `DB_USER` | ❌ No | — | PostgreSQL username |
+| `DB_PASSWORD` | ❌ No | — | PostgreSQL password |
+| `REGION` | ❌ No | — | **Recommended.** IANA timezone string (e.g. `America/Mexico_City`). Automatically derives `TIMEZONE`, `LOCALE`, `EPIC_GAMES_REGION`, `STEAM_LANGUAGE`, and `STEAM_COUNTRY`. Individual vars below take precedence when also set. Supported values listed in `.env.example`. |
+| `TIMEZONE` | ❌ No | `UTC` (or `REGION`) | IANA timezone for date display in notifications (e.g. `America/New_York`, `Europe/London`) |
+| `LOCALE` | ❌ No | `en_US.UTF-8` (or `REGION`) | Locale for date formatting (e.g. `es_MX.UTF-8`, `de_DE.UTF-8`). All locales supported by the built-in region profiles are pre-installed in the Docker image. |
+| `EPIC_GAMES_REGION` | ❌ No | `en-US` (or `REGION`) | Region code for Epic Games Store links (e.g. `es-MX`, `de-DE`) |
+| `STEAM_LANGUAGE` | ❌ No | `english` (or `REGION`) | Language for Steam game descriptions (e.g. `spanish`, `french`). Full list: [Steam localization languages](https://partner.steamgames.com/doc/store/localization/languages) |
+| `STEAM_COUNTRY` | ❌ No | `US` (or `REGION`) | ISO 3166-1 alpha-2 country code for Steam store requests — controls price currency (e.g. `MX` → MXN, `DE` → EUR, `GB` → GBP) |
+| `STEAM_REQUEST_DELAY_MS` | ❌ No | `1500` | Milliseconds to wait between Steam HTTP requests to avoid rate limiting |
+| `CHECK_INTERVAL_HOURS` | ❌ No | — | Run on a repeating interval (e.g. `6` = every 6 hours) instead of once daily. Minimum: `1`. Recommended when Steam is enabled. Leave empty to use `SCHEDULE_TIME`. |
+| `SCHEDULE_TIME` | ❌ No | `12:00` | Daily check time in `HH:MM`, interpreted in `TIMEZONE`. Used only when `CHECK_INTERVAL_HOURS` is not set. |
 | `HEALTHCHECK_INTERVAL` | ❌ No | `1` | Health check ping interval in minutes |
 | `DATE_FORMAT` | ❌ No | `%B %d, %Y at %I:%M %p` | strftime format for the promotion end date in Discord notifications |
 | `API_HOST` | ❌ No | `0.0.0.0` | Interface the REST API and dashboard server binds to |
@@ -196,6 +267,7 @@ docker run -d \
 
 - Free game promotions on Steam are infrequent. When only Steam is enabled (or when Steam returns no results), the scheduler will log "No free games found" more often than with Epic — this is expected.
 - Steam requests are throttled by `STEAM_REQUEST_DELAY_MS` (default 1 500 ms) to avoid hitting rate limits. Lowering this value may cause HTTP 429 errors; raising it is safe.
+- Set `CHECK_INTERVAL_HOURS` when Steam is enabled — Steam free games can appear at any time of day, unlike the predictable Epic Thursday rotation.
 
 ## Project Structure
 
@@ -260,7 +332,13 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 - [x] REST API for health, history, metrics, and notification management (#29)
 - [x] Web dashboard for game history (#46)
 - [x] Production end-to-end test suite (#49)
-- [ ] Add support for multiple notification channels (Discord, Slack, Telegram, etc.) (#55)
-- [ ] UI/UX Enhancements (#71)
 - [x] Support for additional game stores — Steam (#56)
+- [x] Display original price and Steam country-specific pricing (#107)
+- [x] Unified `REGION` variable — one setting derives timezone, locale, and all store options (#117)
+- [x] Show review scores (Steam + Metacritic) in notifications and dashboard (#106)
+- [x] Differentiate DLCs from base games in notifications and dashboard (#109)
+- [x] Store filter in the web dashboard (#115)
+- [x] UI/UX Enhancements: status filter tabs, countdown timer, original price, review scores, expired card styling (#71)
+- [x] Pre-built Docker image on GHCR + self-hosting documentation (#128)
+- [ ] Add support for multiple notification channels (Discord, Slack, Telegram, etc.) (#55)
 

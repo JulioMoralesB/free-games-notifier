@@ -1,9 +1,9 @@
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
+import pytest
 from fastapi.testclient import TestClient
 
-from api import app, _metrics, _start_time, increment_metric
+from api import _metrics, app, increment_metric
 
 
 @pytest.fixture(autouse=True)

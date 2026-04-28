@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 
@@ -19,6 +19,10 @@ class FreeGame:
     end_date        : ISO-8601 UTC string for when the promotion ends.
     is_permanent    : Whether the promotion is permanent, as a boolean.
     description     : A short description of the game.
+    review_scores   : List of review score strings from any number of sources, e.g.
+                      ``["Very Positive", "Metascore: 83", "OpenCritic: 78"]``.
+                      Empty list when no scores are available.
+    game_type       : Content type — ``"game"`` (default) or ``"dlc"``.
     """
 
     title: str
@@ -29,7 +33,8 @@ class FreeGame:
     end_date: str
     is_permanent: bool
     description: str = ""
-    review_score: Optional[str] = None
+    review_scores: list[str] = field(default_factory=list)
+    game_type: str = "game"
 
     def to_dict(self) -> dict:
         """Return a plain dict representation of this FreeGame."""
@@ -37,7 +42,21 @@ class FreeGame:
 
     @classmethod
     def from_dict(cls, data: dict) -> "FreeGame":
-        """Create a FreeGame from a dict, accepting both current and legacy field names."""
+        """Create a FreeGame from a dict, accepting both current and legacy field names.
+
+        Handles two legacy formats transparently:
+        - Old ``review_score`` string field → wrapped in a single-item list.
+        - New ``review_scores`` list field → used as-is.
+        """
+        # New format: list; old format: single string → wrap; absent → empty list.
+        raw_scores = data.get("review_scores")
+        if isinstance(raw_scores, list):
+            review_scores = raw_scores
+        elif data.get("review_score"):
+            review_scores = [data["review_score"]]
+        else:
+            review_scores = []
+
         return cls(
             title=data.get("title", ""),
             store=data.get("store", "epic"),
@@ -47,6 +66,6 @@ class FreeGame:
             end_date=data.get("end_date", ""),
             is_permanent=data.get("is_permanent", False),
             description=data.get("description", ""),
-            review_score=data.get("review_score"),
+            review_scores=review_scores,
+            game_type=data.get("game_type", "game"),
         )
- 

@@ -1,38 +1,37 @@
+import logging
+import os
+import threading
+import time
 from datetime import datetime, timedelta, timezone
+from logging.handlers import TimedRotatingFileHandler
 
+import psycopg2
+import pytz
+import requests
+import schedule
+from alembic.config import Config as AlembicConfig
+
+from alembic import command as alembic_command
+from config import (
+    API_HOST,
+    API_PORT,
+    CHECK_INTERVAL_HOURS,
+    DB_HOST,
+    DB_NAME,
+    DB_PASSWORD,
+    DB_PORT,
+    DB_USER,
+    ENABLED_STORES,
+    HEALTHCHECK_INTERVAL,
+    SCHEDULE_TIME,
+    TIMEZONE,
+)
+from modules.database import FreeGamesDatabase
+from modules.healthcheck import healthcheck
 from modules.notifier import send_discord_message
 from modules.scrapers import get_enabled_scrapers
 from modules.storage import load_previous_games, save_games, save_last_notification
-from modules.healthcheck import healthcheck
-from modules.database import FreeGamesDatabase
-from config import (
-    DB_HOST,
-    DB_PORT,
-    DB_NAME,
-    DB_USER,
-    DB_PASSWORD,
-    ENABLED_STORES,
-    CHECK_INTERVAL_HOURS,
-    SCHEDULE_TIME,
-    HEALTHCHECK_INTERVAL,
-    TIMEZONE,
-    API_HOST,
-    API_PORT,
-)
 
-import os
-import schedule
-import time
-import threading
-import requests
-import psycopg2
-
-from alembic.config import Config as AlembicConfig
-from alembic import command as alembic_command
-
-import logging
-from logging.handlers import TimedRotatingFileHandler
-import pytz
 
 # Filter that drops uvicorn access-log entries for the /health endpoint.
 # The health endpoint is polled every minute by the scheduler and would otherwise
@@ -236,7 +235,7 @@ def check_games():
 
     if new_games:
         logging.info(f"Found {len(new_games)} new free games! Sending Discord notification...")
-        
+
         # Wrap Discord send with try-except to prevent scheduler crash
         try:
             send_discord_message(new_games)
@@ -339,6 +338,7 @@ def _verify_required_tables():
 def _start_api_server():
     """Start the FastAPI server in a background daemon thread."""
     import uvicorn
+
     from api import app
 
     # Silence /health access-log noise before uvicorn starts so the filter

@@ -1,11 +1,14 @@
 """Epic Games Store scraper implementation."""
 
-import requests
 import logging
+
+import requests
+
 from config import EPIC_GAMES_API_URL, EPIC_GAMES_REGION
 from modules.models import FreeGame
 from modules.retry import with_retry
 from modules.scrapers.base import BaseScraper
+from modules.scrapers.review_sources import fetch_metacritic_score
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +28,7 @@ class EpicGamesScraper(BaseScraper):
 
     def fetch_free_games(self) -> list[FreeGame]:
         """Fetch free games from Epic Games API.
-        
+
         Returns
         -------
         list[FreeGame]
@@ -47,7 +50,7 @@ class EpicGamesScraper(BaseScraper):
         if response.status_code != 200:
             logger.error(f"Failed to fetch Epic Games API. Status Code: {response.status_code}")
             return []
-        
+
         data = response.json()
         logger.info(f"Response obtained from Epic Games API. Response Keys: {list(data.keys())}")
         games = []
@@ -66,21 +69,21 @@ class EpicGamesScraper(BaseScraper):
                 ## Get the game title
                 title = game["title"]
                 logger.info(f"Found free game!: {title}")
-                
+
                 ## Get the game link
                 game_id = ""
                 ## If the game is a mystery game, skip it
                 if "Mystery Game" in title:
                     logger.info("Mystery Game found, skipping.")
                     continue
-                
+
                 ## Try to get the offer page slug
                 try:
                     offer_page_slug = game["offerMappings"][0]["pageSlug"]
                     if offer_page_slug:
                         logger.info(f"Found Offer Page Slug: {offer_page_slug}")
                         game_id = offer_page_slug
-                
+
                 except IndexError:
                     logger.info("No Offer Page Slug found.")
                 ## If it fails, try to get the catalogNs page slug
@@ -101,7 +104,7 @@ class EpicGamesScraper(BaseScraper):
                             game_id = product_slug
                     except KeyError:
                         logger.info("No Product Slug found.")
-                
+
                 ## If game_id is found, use it to create the link
                 if game_id:
                     logger.info(f"Using game_id: {game_id}")
@@ -110,7 +113,7 @@ class EpicGamesScraper(BaseScraper):
                 else:
                     logger.info("No game url found, using default link.")
                     link = f"https://store.epicgames.com/{EPIC_GAMES_REGION}/free-games"
-                    
+
                 end_date = ""
                 promotions = game.get("promotions")
                 logger.debug(f"Promotions payload: {promotions}")
@@ -128,7 +131,7 @@ class EpicGamesScraper(BaseScraper):
                 description = game["description"]
                 logger.info(f"Description: {description}")
                 logger.info("Trying to find thumbnail.")
-                thumbnail = "" 
+                thumbnail = ""
                 for image in game["keyImages"]:
                     if image["type"] == "Thumbnail":
                         thumbnail = image["url"]
@@ -142,6 +145,13 @@ class EpicGamesScraper(BaseScraper):
                     thumbnail = "https://static-assets-prod.epicgames.com/epic-store/static/webpack/25c285e020572b4f76b770d6cca272ec.png"
                 logger.info(f"Thumbnail to be used: {thumbnail}")
 
+                # Collect review scores from all available sources.
+                review_scores = []
+                mc = fetch_metacritic_score(title)
+                if mc:
+                    review_scores.append(mc)
+                logger.info("Review scores for %r: %s", title, review_scores)
+
                 games.append(
                     FreeGame(
                         title=title,
@@ -152,6 +162,8 @@ class EpicGamesScraper(BaseScraper):
                         end_date=end_date,
                         is_permanent=False,
                         description=description,
+                        game_type="game",
+                        review_scores=review_scores,
                     )
                 )
         logger.info(f"Returning {len(games)} games")
