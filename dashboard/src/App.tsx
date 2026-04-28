@@ -15,12 +15,22 @@ export default function App() {
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState<SortField>('end_date')
   const [sortDir, setSortDir] = useState<SortDirection>('desc')
-  const [storeFilter, setStoreFilter] = useState<StoreFilter>(
-    () => (sessionStorage.getItem('storeFilter') as StoreFilter) || 'all'
-  )
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>(
-    () => (sessionStorage.getItem('statusFilter') as StatusFilter) || 'all'
-  )
+  const [storeFilter, setStoreFilter] = useState<StoreFilter>(() => {
+    try {
+      return (sessionStorage.getItem('storeFilter') as StoreFilter) || 'all'
+    } catch {
+      // sessionStorage unavailable (restricted privacy settings, etc.)
+      return 'all'
+    }
+  })
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
+    try {
+      return (sessionStorage.getItem('statusFilter') as StatusFilter) || 'all'
+    } catch {
+      // sessionStorage unavailable
+      return 'all'
+    }
+  })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -28,11 +38,19 @@ export default function App() {
 
   // Persist filter selections across page refreshes within the same session
   useEffect(() => {
-    sessionStorage.setItem('storeFilter', storeFilter)
+    try {
+      sessionStorage.setItem('storeFilter', storeFilter)
+    } catch {
+      // sessionStorage unavailable — persistence is best-effort
+    }
   }, [storeFilter])
 
   useEffect(() => {
-    sessionStorage.setItem('statusFilter', statusFilter)
+    try {
+      sessionStorage.setItem('statusFilter', statusFilter)
+    } catch {
+      // sessionStorage unavailable — persistence is best-effort
+    }
   }, [statusFilter])
 
   const fetchGames = useCallback(async () => {

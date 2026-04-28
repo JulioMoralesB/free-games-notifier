@@ -338,11 +338,12 @@ def games_history(
     try:
         all_games = load_previous_games()
 
-        # Apply store filter
+        # Apply store filter — legacy dict records without a "store" key default to
+        # "epic" to match the same fallback used in _to_game_item_dict serialization.
         if store != "all":
             all_games = [
                 g for g in all_games
-                if (g.store if isinstance(g, FreeGame) else g.get("store", "")) == store
+                if (g.store if isinstance(g, FreeGame) else g.get("store", "epic")) == store
             ]
 
         # Apply status filter
