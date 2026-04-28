@@ -3,10 +3,8 @@ import os
 import threading
 import time
 from datetime import datetime, timedelta, timezone
-from logging.handlers import TimedRotatingFileHandler
 
 import psycopg2
-import pytz
 import requests
 import schedule
 from alembic.config import Config as AlembicConfig
@@ -28,9 +26,12 @@ from config import (
 )
 from modules.database import FreeGamesDatabase
 from modules.healthcheck import healthcheck
+from modules.logging_config import setup_logging
 from modules.notifier import send_discord_message
 from modules.scrapers import get_enabled_scrapers
 from modules.storage import load_previous_games, save_games, save_last_notification
+
+setup_logging(timezone=TIMEZONE, log_file="/mnt/logs/notifier.log")
 
 
 # Filter that drops uvicorn access-log entries for the /health endpoint.
@@ -41,36 +42,6 @@ class _HealthEndpointFilter(logging.Filter):
         # uvicorn formats access entries as: '<ip> - "GET /health HTTP/1.1" <status>'
         # Match on ' /health ' (space + path + space) to cover any HTTP method.
         return ' /health ' not in record.getMessage()
-
-
-# Custom formatter to display log timestamps in the configured timezone instead of UTC
-class TimezoneFormatter(logging.Formatter):
-    def __init__(self, fmt, tz):
-        super().__init__(fmt)
-        try:
-            self.tz = pytz.timezone(tz)
-        except pytz.exceptions.UnknownTimeZoneError:
-            logging.warning(
-                "Timezone %s is not available, falling back to UTC. "
-                "Log timestamps will be in UTC. "
-                "Check the TIMEZONE environment variable.",
-                tz,
-            )
-            self.tz = pytz.utc
-
-    def converter(self, timestamp):
-        return datetime.fromtimestamp(timestamp, tz=pytz.utc).astimezone(self.tz).timetuple()
-
-# Configure logging to write to a file and rotate weekly
-log_handler = TimedRotatingFileHandler("/mnt/logs/notifier.log", when="W1", interval=1, backupCount=4)
-log_handler.setLevel(logging.INFO)
-log_handler.setFormatter(TimezoneFormatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s', tz=TIMEZONE))
-
-console_handler = logging.StreamHandler()
-console_handler.setLevel(logging.INFO)
-console_handler.setFormatter(TimezoneFormatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s', tz=TIMEZONE))
-
-logging.basicConfig(level=logging.INFO, handlers=[log_handler, console_handler])
 
 
 def _is_still_active(game) -> bool:
