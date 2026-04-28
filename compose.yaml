@@ -1,13 +1,14 @@
 services:
   free-games-notifier:
-    build:
-      context: .
+    # Pre-built image from GitHub Container Registry.
+    # Pin to a specific version for reproducible deployments:
+    # image: ghcr.io/juliomoralesb/free-games-notifier:1.2.3
+    image: ghcr.io/juliomoralesb/free-games-notifier:latest
     container_name: free-games-notifier
     # Pass everything from .env into the container automatically.
     # No need to enumerate variables here — config.py handles all defaults.
     env_file:
       - .env
-    image: free-games-notifier
     ports:
       - "${API_PORT:-8000}:${API_PORT:-8000}"
     restart: unless-stopped
