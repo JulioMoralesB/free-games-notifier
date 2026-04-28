@@ -24,6 +24,7 @@ import logging.handlers
 from datetime import datetime
 
 import pytz
+
 try:
     from pythonjsonlogger.json import JsonFormatter as _JsonFormatterBase  # v3+
 except ImportError:

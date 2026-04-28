@@ -5,7 +5,6 @@ import time
 from datetime import datetime, timedelta, timezone
 
 import psycopg2
-import pytz
 import requests
 import schedule
 from alembic.config import Config as AlembicConfig
