@@ -1,9 +1,14 @@
 services:
   free-games-notifier:
     # Pre-built image from GitHub Container Registry.
+    # To use it: docker compose pull && docker compose up -d
     # Pin to a specific version for reproducible deployments:
     # image: ghcr.io/juliomoralesb/free-games-notifier:1.2.3
     image: ghcr.io/juliomoralesb/free-games-notifier:latest
+    # Build from source (local development / integration tests):
+    # docker compose up -d --build
+    build:
+      context: .
     container_name: free-games-notifier
     # Pass everything from .env into the container automatically.
     # No need to enumerate variables here — config.py handles all defaults.

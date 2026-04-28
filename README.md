@@ -187,10 +187,13 @@ To enable PostgreSQL, uncomment and fill in the `DB_*` variables; otherwise the 
 **3. Start the service**
 
 ```bash
+docker compose pull   # pull the pre-built image from ghcr.io
 docker compose up -d
 ```
 
 The service pulls the image from `ghcr.io`, applies any pending database migrations on first boot, and begins the scheduling loop. Dashboard and API are available at `http://localhost:8000`.
+
+> **Building from source:** If you prefer to build the image locally (e.g. for development or testing local changes), skip `docker compose pull` and run `docker compose up -d --build` instead.
 
 ### Database migrations
 
