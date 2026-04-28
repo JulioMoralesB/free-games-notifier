@@ -53,7 +53,6 @@ For a step-by-step walkthrough, optional PostgreSQL setup, version pinning, and 
 - [x] DLC differentiation
 - [x] Pre-built Docker image on GHCR
 - [x] Structured JSON logging for Loki/Grafana
-- [ ] Multiple notification channels (Slack, Telegram, etc.) — [#55](https://github.com/JulioMoralesB/free-games-notifier/issues/55)
 
 ## License
 
