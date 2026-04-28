@@ -1,10 +1,11 @@
 import json
+import logging
+
 import psycopg2
 
-from config import DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD
+from config import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
 from modules.models import FreeGame
 
-import logging
 logger = logging.getLogger(__name__)
 
 class FreeGamesDatabase:
@@ -156,7 +157,7 @@ class FreeGamesDatabase:
         except Exception as e:
             logger.error(f"Failed to save games to database: {e}")
             raise
-    
+
     def insert_game(self, game):
         """Insert a game record into the database.
 
@@ -228,7 +229,7 @@ class FreeGamesDatabase:
         try:
             with psycopg2.connect(**self.conn_params) as conn:
                 with conn.cursor() as cursor:
-                    
+
                     # Set schema for this connection
                     cursor.execute("SET search_path to free_games")
 
@@ -239,7 +240,7 @@ class FreeGamesDatabase:
         except Exception as e:
             logger.error(f"Failed to retrieve games: {e}")
             return []
-    
+
     def save_last_notification(self, games):
         """Persist the last-sent notification batch as a JSON blob (single-row upsert)."""
         try:

@@ -1,9 +1,9 @@
 """REST API for the Free Games Notifier service."""
 
+import logging
 import os
 import threading
 import time
-import logging
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -13,17 +13,15 @@ from fastapi.security import APIKeyHeader
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field, field_validator
 
-from modules.notifier import validate_discord_webhook_url
-from modules.models import FreeGame
 from config import (
     API_KEY,
+    DATA_FILE_PATH,
+    DATE_FORMAT,
     DB_HOST,
     DB_NAME,
     DB_PASSWORD,
     DB_PORT,
     DB_USER,
-    DATA_FILE_PATH,
-    DATE_FORMAT,
     ENABLE_HEALTHCHECK,
     ENABLED_STORES,
     EPIC_GAMES_API_URL,
@@ -34,7 +32,8 @@ from config import (
     SCHEDULE_TIME,
     TIMEZONE,
 )
-
+from modules.models import FreeGame
+from modules.notifier import validate_discord_webhook_url
 
 # ---------------------------------------------------------------------------
 # Pydantic response models (for OpenAPI / Swagger documentation)
@@ -376,8 +375,8 @@ def games_history(
 )
 def notify_discord_resend(body: Optional[WebhookOverrideRequest] = None):
     """Re-send the last Discord notification batch to the Discord webhook."""
-    from modules.storage import load_last_notification
     from modules.notifier import send_discord_message
+    from modules.storage import load_last_notification
 
     webhook_url = body.webhook_url if body else None
 
@@ -460,9 +459,9 @@ def check_e2e(body: Optional[WebhookOverrideRequest] = None):
     This endpoint runs the full flow even when the games already exist in the
     database so you can test the pipeline without deleting stored data.
     """
+    from modules.notifier import send_discord_message
     from modules.scrapers import get_enabled_scrapers
     from modules.storage import load_previous_games
-    from modules.notifier import send_discord_message
 
     webhook_url = body.webhook_url if body else None
 

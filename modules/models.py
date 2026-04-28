@@ -69,4 +69,3 @@ class FreeGame:
             review_scores=review_scores,
             game_type=data.get("game_type", "game"),
         )
- 

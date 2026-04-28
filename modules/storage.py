@@ -1,6 +1,6 @@
 import json
-import os
 import logging
+import os
 
 from config import DATA_FILE_PATH, DB_HOST, LAST_NOTIFICATION_FILE_PATH
 from modules.models import FreeGame
@@ -227,7 +227,7 @@ def _save_to_file(games):
         raise
     except Exception as e:
         logger.error(f"Unexpected error saving games: {str(e)} | File path: {DATA_FILE_PATH}")
-        raise IOError(f"Unexpected error saving games") from e
+        raise IOError("Unexpected error saving games") from e
 
 
 def _save_last_notification_to_file(games):

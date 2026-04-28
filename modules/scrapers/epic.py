@@ -1,7 +1,9 @@
 """Epic Games Store scraper implementation."""
 
-import requests
 import logging
+
+import requests
+
 from config import EPIC_GAMES_API_URL, EPIC_GAMES_REGION
 from modules.models import FreeGame
 from modules.retry import with_retry

@@ -1,13 +1,15 @@
-from config import DISCORD_WEBHOOK_URL, TIMEZONE, LOCALE, DATE_FORMAT, EPIC_GAMES_REGION
-import requests
+import locale
+import logging
 from datetime import datetime
 from typing import Optional
-import pytz
-import locale
 from urllib.parse import urlparse
+
+import pytz
+import requests
+
+from config import DATE_FORMAT, DISCORD_WEBHOOK_URL, EPIC_GAMES_REGION, LOCALE, TIMEZONE
 from modules.retry import with_retry
 
-import logging
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -156,13 +158,13 @@ def _get_safe_webhook_identifier(webhook_url: str) -> str:
 def send_discord_message(new_games, webhook_url: Optional[str] = None):
     """
     Send a Discord webhook message for new free games.
-    
+
     Args:
         new_games: List of game dictionaries to send to Discord
         webhook_url: Optional webhook URL override. Defaults to DISCORD_WEBHOOK_URL.
             Must be a valid Discord webhook URL on either discord.com or discordapp.com
             (e.g. https://discord.com/api/webhooks/... or https://discordapp.com/api/webhooks/...).
-        
+
     Raises:
         ValueError: If webhook URL is not configured or fails validation
         requests.RequestException: If the HTTP request fails
@@ -186,7 +188,7 @@ def send_discord_message(new_games, webhook_url: Optional[str] = None):
     # Validate user-supplied webhook URLs to prevent SSRF
     if webhook_url is not None:
         validate_discord_webhook_url(effective_webhook_url)
-    
+
     try:
         _STORE_META = {
             "epic": {
@@ -295,10 +297,14 @@ def send_discord_message(new_games, webhook_url: Optional[str] = None):
                     }
 
                     def _critic_emoji(score_val: int) -> str:
-                        if score_val >= 90:   return "🏆"
-                        if score_val >= 75:   return "⭐"
-                        if score_val >= 61:   return "👍"
-                        if score_val >= 40:   return "⚖️"
+                        if score_val >= 90:
+                            return "🏆"
+                        if score_val >= 75:
+                            return "⭐"
+                        if score_val >= 61:
+                            return "👍"
+                        if score_val >= 40:
+                            return "⚖️"
                         return "👎"
 
                     score_lines = []
@@ -324,7 +330,7 @@ def send_discord_message(new_games, webhook_url: Optional[str] = None):
             except (AttributeError, ValueError) as e:
                 logger.error(f"Error processing game data for embed: {str(e)} | Game data: {game}")
                 raise
-            
+
         stores_in_batch = {game.store for game in new_games}
         all_dlcs = all(g.game_type == "dlc" for g in new_games)
         if len(stores_in_batch) == 1:
@@ -366,8 +372,8 @@ def send_discord_message(new_games, webhook_url: Optional[str] = None):
             }
             logger.error(f"Discord API returned non-success status: {error_context}")
             response.raise_for_status()  # Raise exception for bad status codes
-            
-    except requests.exceptions.Timeout as e:
+
+    except requests.exceptions.Timeout:
         safe_webhook_id = _get_safe_webhook_identifier(effective_webhook_url)
         logger.error(
             f"Discord request timed out (10s per-attempt limit, all attempts exhausted) | Webhook identifier: {safe_webhook_id} | Games: {len(new_games)}"
@@ -388,4 +394,4 @@ def send_discord_message(new_games, webhook_url: Optional[str] = None):
     except Exception as e:
         logger.error(f"Unexpected error sending Discord message: {str(e)} | Games: {len(new_games)}")
         raise
-    
+

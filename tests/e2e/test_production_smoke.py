@@ -1,6 +1,7 @@
-import pytest
-import httpx
 import os
+
+import httpx
+import pytest
 
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 API_KEY = os.getenv("API_KEY")
