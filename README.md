@@ -180,6 +180,8 @@ Open `.env` and set at minimum:
 DISCORD_WEBHOOK_URL=https://discordapp.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_TOKEN
 ```
 
+The file already includes sensible defaults for `DATA_PATH` (`./data`) and `LOGS_PATH` (`./logs`), which are the host directories Docker will bind-mount for persistent storage and logs. Change them to absolute paths if you prefer a specific location.
+
 Optionally set `REGION` to your IANA timezone string (e.g. `America/Mexico_City`) — this derives timezone, locale, Steam language, and country in one step. See the [Environment Variables Reference](#environment-variables-reference) for all options.
 
 To enable PostgreSQL, uncomment and fill in the `DB_*` variables; otherwise the service uses JSON file storage automatically.
@@ -191,7 +193,7 @@ docker compose pull   # pull the pre-built image from ghcr.io
 docker compose up -d
 ```
 
-The service pulls the image from `ghcr.io`, applies any pending database migrations on first boot, and begins the scheduling loop. Dashboard and API are available at `http://localhost:8000`.
+Docker Compose creates the `data/` and `logs/` directories and the internal network automatically on first run. The service applies any pending database migrations and begins the scheduling loop. Dashboard and API are available at `http://localhost:8000`.
 
 > **Building from source:** If you prefer to build the image locally (e.g. for development or testing local changes), skip `docker compose pull` and run `docker compose up -d --build` instead.
 
