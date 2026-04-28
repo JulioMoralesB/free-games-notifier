@@ -61,7 +61,7 @@ jobs:
           push-to-registry: true
 
       - name: Trigger deploy via n8n
-        if: ${{ !contains(github.ref_name, '-') && secrets.N8N_WEBHOOK_URL != '' }}
+        if: ${{ !contains(github.ref_name, '-') && secrets.N8N_WEBHOOK_URL != '' && secrets.N8N_WEBHOOK_SECRET != '' }}
         env:
           N8N_URL: ${{ secrets.N8N_WEBHOOK_URL }}
           N8N_SECRET: ${{ secrets.N8N_WEBHOOK_SECRET }}
