@@ -61,8 +61,11 @@ jobs:
           push-to-registry: true
 
       - name: Trigger deploy via n8n
-        if: ${{ !contains(github.ref_name, '-') }}
+        if: ${{ !contains(github.ref_name, '-') && secrets.N8N_WEBHOOK_URL != '' }}
+        env:
+          N8N_URL: ${{ secrets.N8N_WEBHOOK_URL }}
+          VERSION: ${{ github.ref_name }}
         run: |
-          curl -f --max-time 30 -X POST "${{ secrets.N8N_WEBHOOK_URL }}" \
+          curl -f --max-time 30 -X POST "$N8N_URL" \
             -H "Content-Type: application/json" \
-            -d '{"repo":"free-games-notifier","version":"${{ github.ref_name }}","status":"deployed"}'
+            -d "{\"repo\":\"free-games-notifier\",\"version\":\"${VERSION}\",\"status\":\"deployed\"}"
