@@ -208,6 +208,12 @@ class SteamScraper(BaseScraper):
             f"/steam/apps/{appid}/capsule_sm_120.jpg"
         )
         end_date = self._fetch_end_date(candidate["url"])
+        if not end_date:
+            logger.error(
+                "END DATE MISSING for Steam game %r (appid=%s, url=%s). "
+                "Game will be stored with empty end_date — check the store page manually.",
+                title, appid, candidate["url"],
+            )
 
         # The appdetails API returns a "type" field: "game", "dlc", "music", etc.
         # This is more reliable than inferring from search-result CSS classes.
@@ -288,8 +294,9 @@ class SteamScraper(BaseScraper):
                 result = _parse_steam_end_date(el.text)
                 if result:
                     return result
-                logger.warning(
-                    "Found .game_purchase_discount_quantity but could not parse end date. "
+                logger.error(
+                    "Found .game_purchase_discount_quantity but regex did not match — "
+                    "Steam may have changed the date format. "
                     "Text: %r | URL: %s",
                     el.text[:200],
                     url,
@@ -301,10 +308,14 @@ class SteamScraper(BaseScraper):
             if result:
                 return result
 
-            logger.warning("Could not find promotion end date on Steam page: %s", url)
+            logger.error(
+                "Could not find promotion end date on Steam page: %s — "
+                "page may use a different layout or the element is JS-rendered.",
+                url,
+            )
             return ""
         except Exception as e:
-            logger.warning("Failed to fetch end date from %s: %s", url, e)
+            logger.error("Failed to fetch end date from %s: %s", url, e)
             return ""
 
     def _fetch_review_score(self, appid: str) -> Optional[str]:
