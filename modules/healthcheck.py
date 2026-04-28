@@ -1,7 +1,8 @@
-import requests
-from config import HEALTHCHECK_URL, ENABLE_HEALTHCHECK
-
 import logging
+
+import requests
+
+from config import ENABLE_HEALTHCHECK, HEALTHCHECK_URL
 
 logger = logging.getLogger(__name__)
 

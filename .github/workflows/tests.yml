@@ -10,6 +10,7 @@ on:
       - QA
 
 jobs:
+  # ─── Python: lint + unit tests ───────────────────────────────────────────────
   test:
     runs-on: ubuntu-latest
     permissions:
@@ -24,6 +25,13 @@ jobs:
         with:
           python-version: "3.9"
 
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements*.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
+
       - name: Install locale
         run: |
           sudo apt-get update -qq
@@ -37,8 +45,38 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
+      - name: Lint (ruff)
+        run: ruff check . --output-format github
+
       - name: Run tests
         run: pytest tests/ -v --tb=short -m "not integration and not production"
         env:
           LANG: es_ES.UTF-8
           LC_ALL: es_ES.UTF-8
+
+  # ─── Dashboard: TypeScript type-check + build ────────────────────────────────
+  dashboard:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    defaults:
+      run:
+        working-directory: dashboard
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: dashboard/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (tsc + vite)
+        run: npm run build

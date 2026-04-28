@@ -1,8 +1,9 @@
 """Tests for the database migration runner in main.py."""
 
 import sys
+from unittest.mock import MagicMock, call, patch
+
 import pytest
-from unittest.mock import patch, MagicMock, call
 
 from modules.models import FreeGame
 

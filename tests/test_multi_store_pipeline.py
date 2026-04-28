@@ -6,8 +6,7 @@ previously seen games regardless of which store they came from.
 """
 
 import sys
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from modules.models import FreeGame
 

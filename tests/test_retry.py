@@ -1,11 +1,11 @@
+from unittest.mock import MagicMock, call, patch
+
 import pytest
-from unittest.mock import patch, MagicMock, call
 import requests
 
-from modules.scrapers.epic import EpicGamesScraper
 from modules import notifier
 from modules.retry import with_retry
-
+from modules.scrapers.epic import EpicGamesScraper
 
 # ---------------------------------------------------------------------------
 # Tests for with_retry utility
@@ -105,7 +105,7 @@ class TestFetchFreeGamesRetry:
                 good_response,
             ]
             scraper = EpicGamesScraper()
-            games = scraper.fetch_free_games()
+            scraper.fetch_free_games()
 
         assert mock_get.call_count == 2
 

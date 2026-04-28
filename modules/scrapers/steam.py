@@ -6,6 +6,7 @@ import re
 import time
 from datetime import datetime, timezone
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 import requests
 from bs4 import BeautifulSoup
@@ -15,8 +16,6 @@ from modules.models import FreeGame
 from modules.retry import with_retry
 from modules.scrapers.base import BaseScraper
 from modules.scrapers.review_sources import fetch_metacritic_score
-
-from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
 

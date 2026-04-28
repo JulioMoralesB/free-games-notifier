@@ -1,6 +1,7 @@
 """Base scraper class defining the interface for game scrapers."""
 
 from abc import ABC, abstractmethod
+
 from modules.models import FreeGame
 
 
@@ -16,7 +17,7 @@ class BaseScraper(ABC):
     @abstractmethod
     def fetch_free_games(self) -> list[FreeGame]:
         """Fetch free games from the store.
-        
+
         Returns
         -------
         list[FreeGame]

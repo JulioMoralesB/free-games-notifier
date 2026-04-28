@@ -1,7 +1,8 @@
-import pytest
-from unittest.mock import patch, MagicMock
-from datetime import datetime as _real_datetime, timezone as _utc_tz
+from datetime import datetime as _real_datetime
+from datetime import timezone as _utc_tz
+from unittest.mock import MagicMock, patch
 
+import pytest
 import requests as req
 
 from modules.scrapers.steam import SteamScraper, _parse_steam_end_date

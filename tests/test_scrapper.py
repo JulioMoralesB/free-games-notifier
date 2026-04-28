@@ -1,11 +1,11 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
-from modules.scrapers.epic import EpicGamesScraper
-from modules.scrapers.review_sources import make_metacritic_slug, fetch_metacritic_score
-from modules.models import FreeGame
 from config import EPIC_GAMES_REGION
-
+from modules.models import FreeGame
+from modules.scrapers.epic import EpicGamesScraper
+from modules.scrapers.review_sources import fetch_metacritic_score, make_metacritic_slug
 
 # ---------------------------------------------------------------------------
 # Helpers

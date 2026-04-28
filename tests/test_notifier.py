@@ -1,10 +1,10 @@
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 import requests as requests_lib
 
 from modules import notifier
 from modules.models import FreeGame
-
 
 VALID_WEBHOOK = "https://discord.com/api/webhooks/123456789/token_abc"
 
