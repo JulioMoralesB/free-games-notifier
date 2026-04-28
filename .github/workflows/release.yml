@@ -64,8 +64,10 @@ jobs:
         if: ${{ !contains(github.ref_name, '-') && secrets.N8N_WEBHOOK_URL != '' }}
         env:
           N8N_URL: ${{ secrets.N8N_WEBHOOK_URL }}
+          N8N_SECRET: ${{ secrets.N8N_WEBHOOK_SECRET }}
           VERSION: ${{ github.ref_name }}
         run: |
           curl -f --max-time 30 -X POST "$N8N_URL" \
             -H "Content-Type: application/json" \
+            -H "X-Webhook-Secret: $N8N_SECRET" \
             -d "{\"repo\":\"free-games-notifier\",\"version\":\"${VERSION}\",\"status\":\"deployed\"}"
