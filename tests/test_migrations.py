@@ -29,15 +29,15 @@ def _import_main():
 
 
 class TestRunDbMigrations:
-    """Tests for main._run_db_migrations()."""
+    """Tests for main.run_db_migrations()."""
 
     def test_calls_alembic_upgrade_head(self):
         """_run_db_migrations should invoke alembic upgrade with 'head'."""
         main = _import_main()
 
         mock_upgrade = MagicMock()
-        with patch("main.alembic_command.upgrade", mock_upgrade):
-            main._run_db_migrations()
+        with patch("modules.db_lifecycle.alembic_command.upgrade", mock_upgrade):
+            main.run_db_migrations()
 
         assert mock_upgrade.call_count == 1
         _, upgrade_target = mock_upgrade.call_args[0]
@@ -55,8 +55,8 @@ class TestRunDbMigrations:
         def capture_upgrade(cfg, target):
             captured_cfg["cfg"] = cfg
 
-        with patch("main.alembic_command.upgrade", side_effect=capture_upgrade):
-            main._run_db_migrations()
+        with patch("modules.db_lifecycle.alembic_command.upgrade", side_effect=capture_upgrade):
+            main.run_db_migrations()
 
         assert isinstance(captured_cfg["cfg"], AlembicConfig)
 
@@ -64,13 +64,13 @@ class TestRunDbMigrations:
         """_run_db_migrations should not swallow exceptions from alembic."""
         main = _import_main()
 
-        with patch("main.alembic_command.upgrade", side_effect=RuntimeError("db error")):
+        with patch("modules.db_lifecycle.alembic_command.upgrade", side_effect=RuntimeError("db error")):
             with pytest.raises(RuntimeError, match="db error"):
-                main._run_db_migrations()
+                main.run_db_migrations()
 
 
 class TestVerifyRequiredTables:
-    """Tests for main._verify_required_tables()."""
+    """Tests for main.verify_required_tables()."""
 
     def test_succeeds_when_last_notification_exists(self):
         """Verification should pass when the required table exists."""
@@ -83,8 +83,8 @@ class TestVerifyRequiredTables:
         mock_conn.__enter__.return_value = mock_conn
         mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
 
-        with patch("main.psycopg2.connect", return_value=mock_conn):
-            main._verify_required_tables()
+        with patch("modules.db_lifecycle.psycopg2.connect", return_value=mock_conn):
+            main.verify_required_tables()
 
     def test_raises_when_last_notification_is_missing(self):
         """Verification should fail fast when last_notification table is absent."""
@@ -97,9 +97,9 @@ class TestVerifyRequiredTables:
         mock_conn.__enter__.return_value = mock_conn
         mock_conn.cursor.return_value.__enter__.return_value = mock_cursor
 
-        with patch("main.psycopg2.connect", return_value=mock_conn):
+        with patch("modules.db_lifecycle.psycopg2.connect", return_value=mock_conn):
             with pytest.raises(RuntimeError, match="last_notification"):
-                main._verify_required_tables()
+                main.verify_required_tables()
 
 
 class TestMainDbBranch:
@@ -112,8 +112,8 @@ class TestMainDbBranch:
         mock_db = MagicMock()
         with patch("main.DB_HOST", "localhost"), \
              patch("main.FreeGamesDatabase", return_value=mock_db), \
-             patch("main._run_db_migrations") as mock_migrate, \
-             patch("main._verify_required_tables") as mock_verify_tables, \
+             patch("main.run_db_migrations") as mock_migrate, \
+             patch("main.verify_required_tables") as mock_verify_tables, \
              patch("main._start_api_server"), \
              patch("main.check_games"), \
              patch("main.healthcheck"), \
@@ -133,8 +133,8 @@ class TestMainDbBranch:
         main = _import_main()
 
         with patch("main.DB_HOST", None), \
-             patch("main._run_db_migrations") as mock_migrate, \
-             patch("main._verify_required_tables") as mock_verify_tables, \
+             patch("main.run_db_migrations") as mock_migrate, \
+             patch("main.verify_required_tables") as mock_verify_tables, \
              patch("main.FreeGamesDatabase") as mock_db_cls, \
              patch("main._start_api_server"), \
              patch("main.check_games"), \
@@ -399,7 +399,7 @@ class TestFindNewGamesEdgeCases:
             )
         ]
 
-        result = main._find_new_games(current_games, previous_games)
+        result = main.find_new_games(current_games, previous_games)
 
         assert result == [], "Missing end_date should be treated as active; no new games expected"
 
@@ -422,7 +422,7 @@ class TestFindNewGamesEdgeCases:
             )
         ]
 
-        result = main._find_new_games(current_games, previous_games)
+        result = main.find_new_games(current_games, previous_games)
 
         assert result == [], "empty end_date should be treated as active; no new games expected"
 
@@ -445,7 +445,7 @@ class TestFindNewGamesEdgeCases:
             )
         ]
 
-        result = main._find_new_games(current_games, previous_games)
+        result = main.find_new_games(current_games, previous_games)
 
         assert result == [], "Malformed end_date should be treated as active; no new games expected"
 
@@ -469,7 +469,7 @@ class TestFindNewGamesEdgeCases:
             )
         ]
 
-        result = main._find_new_games(current_games, previous_games)
+        result = main.find_new_games(current_games, previous_games)
 
         assert result == [], "Naive far-future end_date should be treated as active after UTC assignment"
 
@@ -492,7 +492,7 @@ class TestFindNewGamesEdgeCases:
             )
         ]
 
-        result = main._find_new_games(current_games, previous_games)
+        result = main.find_new_games(current_games, previous_games)
 
         assert result == current_games, "Naive past end_date should be treated as expired; game should appear as new"
 
@@ -532,7 +532,7 @@ class TestFindNewGamesEdgeCases:
             )
         ]
 
-        result = main._find_new_games(current_games, previous_games)
+        result = main.find_new_games(current_games, previous_games)
 
         assert result == [], (
             "A recently-expired game returning a different end_date should not "
@@ -569,7 +569,7 @@ class TestFindNewGamesEdgeCases:
             )
         ]
 
-        result = main._find_new_games(current_games, previous_games)
+        result = main.find_new_games(current_games, previous_games)
 
         assert result == current_games, (
             "A game that was free long ago and is now free again should trigger "

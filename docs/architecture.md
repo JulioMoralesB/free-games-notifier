@@ -38,6 +38,8 @@ A high-level overview of how the project is structured and how data flows throug
 │   ├── notifier.py               # Discord webhook sender + embed builder
 │   ├── storage.py                # Storage dispatcher (PostgreSQL or JSON file)
 │   ├── database.py               # PostgreSQL operations
+│   ├── dedupe.py                 # New-game detection + grace-period guards
+│   ├── db_lifecycle.py           # Alembic migrations + post-migration sanity check
 │   ├── healthcheck.py            # External health check pings
 │   ├── retry.py                  # Generic exponential-backoff helper
 │   ├── logging_config.py         # JSON structured logging setup
