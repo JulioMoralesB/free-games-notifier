@@ -11,7 +11,7 @@ from api.schemas import ConfigResponse, ErrorResponse, HealthResponse, MetricsRe
 from config import (
     DATA_FILE_PATH,
     DATE_FORMAT,
-    DB_CONNECT_TIMEOUT,
+    DB_HEALTH_CHECK_TIMEOUT,
     DB_HOST,
     DB_NAME,
     DB_PASSWORD,
@@ -53,7 +53,7 @@ def health():
                 dbname=DB_NAME,
                 user=DB_USER,
                 password=DB_PASSWORD,
-                connect_timeout=DB_CONNECT_TIMEOUT,
+                connect_timeout=DB_HEALTH_CHECK_TIMEOUT,
             )
             conn.close()
             result["database"] = "healthy"
