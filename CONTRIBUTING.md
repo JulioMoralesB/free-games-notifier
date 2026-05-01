@@ -18,7 +18,7 @@ Use the issue templates that appear automatically when you click **New Issue**. 
 feature branch ──► QA ──► main ──► tag vX.Y.Z ──► GHCR image
 ```
 
-- All PRs target the **`QA`** branch — never `main` directly. \`QA\` accumulates changes until they are ready for a release; `main` is the source of truth for release tags.
+- All PRs target the **`QA`** branch — never `main` directly. `QA` accumulates changes until they are ready for a release; `main` is the source of truth for release tags.
 - A maintainer fast-forwards `main` from `QA` and tags `vX.Y.Z` to publish a release. Pushing the tag triggers `.github/workflows/release.yml`, which builds the multi-arch Docker image and publishes it to `ghcr.io/juliomoralesb/free-games-notifier`.
 - For a hotfix on `main` (e.g. broken release workflow), branch from `main`, target `QA` in the PR, and the maintainer cherry-picks or merges through normally.
 
