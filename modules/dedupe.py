@@ -49,9 +49,7 @@ def is_still_active(game) -> bool:
     if not end_date:
         return True
 
-    normalized = end_date.strip()
-    if normalized.endswith("Z"):
-        normalized = normalized[:-1] + "+00:00"
+    normalized = _normalize_end_date(end_date)
 
     try:
         ends_at = datetime.fromisoformat(normalized)
@@ -79,9 +77,7 @@ def _recently_expired_urls(previous_games) -> set[str]:
     for game in previous_games:
         if not game.url or not game.end_date:
             continue
-        normalized = game.end_date.strip()
-        if normalized.endswith("Z"):
-            normalized = normalized[:-1] + "+00:00"
+        normalized = _normalize_end_date(game.end_date)
         try:
             ends_at = datetime.fromisoformat(normalized)
         except ValueError:
