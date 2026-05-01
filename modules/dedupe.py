@@ -14,6 +14,8 @@ The functions here are pure: no I/O, no scheduling, no external dependencies
 beyond ``datetime``.  They are easy to test in isolation.
 """
 
+from __future__ import annotations
+
 from datetime import datetime, timedelta, timezone
 
 #: Window after a promotion's expiry during which re-notification is suppressed,
