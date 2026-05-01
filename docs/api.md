@@ -15,7 +15,7 @@ The service exposes a FastAPI REST API on `API_HOST:API_PORT` (default `0.0.0.0:
 | `/metrics` | `GET` | — | Uptime, games processed, notification counts, error counts |
 | `/config` | `GET` | API key | Non-secret runtime configuration |
 | `/check` | `POST` | API key | Full end-to-end pipeline test (fetch + notify) |
-| `/dashboard/` | `GET` | — | Web dashboard (served as static files) |
+| `/dashboard/` | `GET` | — | Web dashboard (served when `dashboard/dist` build artifacts are present) |
 
 ## Authentication
 

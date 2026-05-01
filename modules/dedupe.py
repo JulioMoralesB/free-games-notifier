@@ -14,12 +14,29 @@ The functions here are pure: no I/O, no scheduling, no external dependencies
 beyond ``datetime``.  They are easy to test in isolation.
 """
 
+from __future__ import annotations
+
 from datetime import datetime, timedelta, timezone
 
 #: Window after a promotion's expiry during which re-notification is suppressed,
 #: even if the store returns a fresh-looking ``end_date``.  Tunable; 24 hours
 #: matches the typical Epic / Steam free-promo cadence.
 RECENTLY_EXPIRED_GRACE_PERIOD_HOURS = 24
+
+
+def _normalize_end_date(end_date: str | None) -> str | None:
+    """Normalize an end_date string to a canonical form for deduplication keys.
+
+    Converts the ``Z`` UTC suffix to ``+00:00`` so that equivalent timestamps
+    stored in different ISO 8601 forms are treated as the same key and don't
+    trigger duplicate notifications.
+    """
+    if not end_date:
+        return end_date
+    normalized = end_date.strip()
+    if normalized.endswith("Z"):
+        normalized = normalized[:-1] + "+00:00"
+    return normalized
 
 
 def is_still_active(game) -> bool:
@@ -32,9 +49,7 @@ def is_still_active(game) -> bool:
     if not end_date:
         return True
 
-    normalized = end_date.strip()
-    if normalized.endswith("Z"):
-        normalized = normalized[:-1] + "+00:00"
+    normalized = _normalize_end_date(end_date)
 
     try:
         ends_at = datetime.fromisoformat(normalized)
@@ -62,9 +77,7 @@ def _recently_expired_urls(previous_games) -> set[str]:
     for game in previous_games:
         if not game.url or not game.end_date:
             continue
-        normalized = game.end_date.strip()
-        if normalized.endswith("Z"):
-            normalized = normalized[:-1] + "+00:00"
+        normalized = _normalize_end_date(game.end_date)
         try:
             ends_at = datetime.fromisoformat(normalized)
         except ValueError:
@@ -104,7 +117,7 @@ def find_new_games(current_games, previous_games):
     # This prevents re-notifying for the same expired promo while still allowing
     # re-notification when the same game has a new promo (different end_date).
     previous_seen = {
-        (game.url, game.end_date)
+        (game.url, _normalize_end_date(game.end_date))
         for game in previous_games
         if game.url
     }
@@ -129,7 +142,7 @@ def find_new_games(current_games, previous_games):
             if (
                 url not in previous_active_urls
                 and url not in recently_expired
-                and (url, game.end_date) not in previous_seen
+                and (url, _normalize_end_date(game.end_date)) not in previous_seen
                 and url not in notified_urls
             ):
                 new_games.append(game)

@@ -232,6 +232,10 @@ HEALTHCHECK_URL = os.getenv("HEALTHCHECK_URL")
 ENABLE_HEALTHCHECK = os.getenv("ENABLE_HEALTHCHECK", "false").lower() == "true"
 
 # Database configuration
+_raw_db_connect_timeout = os.getenv("DB_CONNECT_TIMEOUT")
+DB_CONNECT_TIMEOUT = int(_raw_db_connect_timeout) if _raw_db_connect_timeout and _raw_db_connect_timeout.strip() else 10  # seconds; applies to all psycopg2.connect() calls
+_raw_db_health_check_timeout = os.getenv("DB_HEALTH_CHECK_TIMEOUT")
+DB_HEALTH_CHECK_TIMEOUT = int(_raw_db_health_check_timeout) if _raw_db_health_check_timeout and _raw_db_health_check_timeout.strip() else 5  # seconds; shorter timeout for the /health liveness check
 DB_HOST = os.getenv("DB_HOST") or None
 _raw_db_port = os.getenv("DB_PORT")
 DB_PORT = int(_raw_db_port) if _raw_db_port and _raw_db_port.strip() else 5432

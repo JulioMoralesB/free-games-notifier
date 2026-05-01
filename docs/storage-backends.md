@@ -41,8 +41,9 @@ The notifier automatically selects a storage backend based on the `DB_HOST` envi
 
 1. Stand up a PostgreSQL instance (any 13+ should work)
 2. Add `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` to your `.env`
-3. Restart the container — the schema is created and any existing JSON data is **not** automatically imported
-4. (Optional) If you want to preserve history, you can re-insert the JSON file's records via SQL before starting the container
+3. Start the container once so it can create the `free_games` schema and apply any pending migrations, then stop it again
+4. (Optional) If you want to preserve history, import records from `free_games.json` into PostgreSQL via SQL
+5. Start the container again. Existing JSON data is **not** auto-imported; use step 4 if you need to preserve history
 
 ## Switching from PostgreSQL to JSON
 

@@ -32,7 +32,10 @@ def get_end_date(game) -> datetime:
     """
     try:
         raw = game.end_date if isinstance(game, FreeGame) else game.get("end_date", "")
-        return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        dt = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
     except Exception:
         return datetime.min.replace(tzinfo=timezone.utc)
 

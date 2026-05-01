@@ -104,7 +104,7 @@ Every scraper returns `list[FreeGame]` from `modules/models.py`. Adding a new st
 
 ### Deduplication strategy
 
-The notifier runs daily/hourly but should never send the same notification twice. `main._find_new_games` uses three independent checks:
+The notifier runs daily/hourly but should never send the same notification twice. `modules.dedupe.find_new_games` uses three independent checks:
 
 1. **Active URL set** — URLs whose promo end date is still in the future are suppressed
 2. **Recently expired URLs** — a 24-hour grace window after expiry suppresses re-notification when a store returns a wrong end date (e.g. Steam off-by-one-year)

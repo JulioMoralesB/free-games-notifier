@@ -3,7 +3,7 @@ import logging
 
 import psycopg2
 
-from config import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
+from config import DB_CONNECT_TIMEOUT, DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
 from modules.models import FreeGame
 
 logger = logging.getLogger(__name__)
@@ -15,7 +15,8 @@ class FreeGamesDatabase:
             "port": DB_PORT,
             "dbname": DB_NAME,
             "user": DB_USER,
-            "password": DB_PASSWORD
+            "password": DB_PASSWORD,
+            "connect_timeout": DB_CONNECT_TIMEOUT,
         }
 
     def init_db(self):

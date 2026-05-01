@@ -12,7 +12,7 @@ import psycopg2
 from alembic.config import Config as AlembicConfig
 
 from alembic import command as alembic_command
-from config import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
+from config import DB_CONNECT_TIMEOUT, DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +41,7 @@ def verify_required_tables() -> None:
         "dbname": DB_NAME,
         "user": DB_USER,
         "password": DB_PASSWORD,
+        "connect_timeout": DB_CONNECT_TIMEOUT,
     }
 
     with psycopg2.connect(**conn_params) as conn:
