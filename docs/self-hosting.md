@@ -27,7 +27,7 @@ cp .env.example .env
 Open `.env` and set at minimum:
 
 ```env
-DISCORD_WEBHOOK_URL=https://discordapp.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_TOKEN
+DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_TOKEN
 ```
 
 The file already includes sensible defaults for `DATA_PATH` (`./data`) and `LOGS_PATH` (`./logs`), which Docker bind-mounts for persistent storage and logs. Change them to absolute paths if you prefer a specific location.

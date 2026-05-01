@@ -5,8 +5,11 @@ several routes. The lock makes ``increment_metric`` thread-safe so the API
 server thread and the scheduler thread can both update counters concurrently.
 """
 
+import logging
 import threading
 import time
+
+logger = logging.getLogger(__name__)
 
 _start_time = time.time()
 _metrics = {
@@ -19,10 +22,12 @@ _metrics_lock = threading.Lock()
 
 
 def increment_metric(key: str, amount: int = 1) -> None:
-    """Safely increment a metric counter. Unknown keys are silently ignored."""
+    """Safely increment a metric counter. Unknown keys emit a warning."""
     with _metrics_lock:
         if key in _metrics:
             _metrics[key] += amount
+        else:
+            logger.warning("Unknown metric key ignored: %s", key)
 
 
 def get_uptime_seconds() -> float:

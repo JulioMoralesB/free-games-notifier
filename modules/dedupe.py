@@ -22,6 +22,21 @@ from datetime import datetime, timedelta, timezone
 RECENTLY_EXPIRED_GRACE_PERIOD_HOURS = 24
 
 
+def _normalize_end_date(end_date: str | None) -> str | None:
+    """Normalize an end_date string to a canonical form for deduplication keys.
+
+    Converts the ``Z`` UTC suffix to ``+00:00`` so that equivalent timestamps
+    stored in different ISO 8601 forms are treated as the same key and don't
+    trigger duplicate notifications.
+    """
+    if not end_date:
+        return end_date
+    normalized = end_date.strip()
+    if normalized.endswith("Z"):
+        normalized = normalized[:-1] + "+00:00"
+    return normalized
+
+
 def is_still_active(game) -> bool:
     """Return True if *game*'s promotion has not yet expired.
 
@@ -104,7 +119,7 @@ def find_new_games(current_games, previous_games):
     # This prevents re-notifying for the same expired promo while still allowing
     # re-notification when the same game has a new promo (different end_date).
     previous_seen = {
-        (game.url, game.end_date)
+        (game.url, _normalize_end_date(game.end_date))
         for game in previous_games
         if game.url
     }
@@ -129,7 +144,7 @@ def find_new_games(current_games, previous_games):
             if (
                 url not in previous_active_urls
                 and url not in recently_expired
-                and (url, game.end_date) not in previous_seen
+                and (url, _normalize_end_date(game.end_date)) not in previous_seen
                 and url not in notified_urls
             ):
                 new_games.append(game)

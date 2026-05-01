@@ -41,6 +41,7 @@ def verify_required_tables() -> None:
         "dbname": DB_NAME,
         "user": DB_USER,
         "password": DB_PASSWORD,
+        "connect_timeout": 10,
     }
 
     with psycopg2.connect(**conn_params) as conn:

@@ -68,7 +68,7 @@ def check_games():
 
     try:
         previous_games = load_previous_games()
-        logger.info("Previous games loaded from storage: %s game(s)", previous_games)
+        logger.info("Previous games loaded from storage: %d game(s)", len(previous_games))
     except Exception as e:
         logger.error("Failed to load previous games: %s", e)
         return

@@ -32,7 +32,7 @@ def notify_discord_resend(body: Optional[WebhookOverrideRequest] = None):
     try:
         games = load_last_notification()
     except Exception as e:
-        logger.error("Failed to load games for resend: %s", e)
+        logger.error("Failed to load games for resend: %s", e, exc_info=True)
         increment_metric("errors")
         raise HTTPException(status_code=500, detail="Failed to load games")
 

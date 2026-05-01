@@ -86,4 +86,4 @@ ruff check . --fix    # auto-fix safe issues
 
 - All PRs target the `QA` branch — never `main` directly
 - `main` is the source of truth for releases; tags `v*.*.*` push images to GHCR
-- See [CONTRIBUTING.md](../CONTRIBUTING.md) for the full contribution guide (once published)
+- See [CONTRIBUTING.md](../CONTRIBUTING.md) for the full contribution guide

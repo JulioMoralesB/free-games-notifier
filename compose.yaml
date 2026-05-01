@@ -27,10 +27,11 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
-      - free-games-notifier-network
+      - apollo-server-network
 
 networks:
-  free-games-notifier-network:
+  apollo-server-network:
+    external: true
     # Created automatically by Docker Compose on first run.
     # To connect this service to an existing external network (e.g. a reverse proxy),
     # change this to: external: true and update the name above accordingly.

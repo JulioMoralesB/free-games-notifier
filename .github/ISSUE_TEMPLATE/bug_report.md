@@ -24,7 +24,7 @@ assignees: ""
 
 <!-- What happened instead? Include relevant log lines (set ENABLE_HEALTHCHECK=false if logs are noisy). -->
 
-```
+```text
 <paste relevant log lines here — redact webhook tokens, DB credentials, etc.>
 ```
 
