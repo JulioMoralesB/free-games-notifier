@@ -1,1 +1,0 @@
-Example of how Steam page looks like when there are free games in the plafrorm has been added here in the Steam Search.html file. Required files have been added as well to the Steam Search_files folder.

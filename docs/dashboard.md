@@ -24,6 +24,18 @@ npm install
 npm run dev     # http://localhost:5173/dashboard/
 ```
 
+## Testing
+
+The dashboard uses [Vitest](https://vitest.dev/) with [React Testing Library](https://testing-library.com/docs/react-testing-library/intro). Tests live alongside the code they cover (`*.test.ts` / `*.test.tsx`).
+
+```bash
+cd dashboard
+npm test           # one-shot run (used in CI)
+npm run test:watch # interactive watch mode for development
+```
+
+Current coverage focuses on `GameCard` (countdown logic, expired styling, review-chip filtering, locale switching) and `translations.ts` (key parity across locales). When adding a new component, prefer behavior-driven tests using `screen.getByText` / `getByRole` over snapshot tests.
+
 ## Language support (i18n)
 
 The dashboard auto-detects the visitor's preferred language from `navigator.languages` and falls back to English. A language selector in the header lets users switch manually; the choice is persisted in `localStorage`.
