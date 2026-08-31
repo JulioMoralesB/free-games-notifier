@@ -106,7 +106,7 @@ def check_games():
             logger.warning("Discord notification was sent but failed to record it for the resend endpoint.")
 
     else:
-        logger.warning("No new free games detected.")
+        logger.info("No new free games detected.")
 
     # Always persist so that the DB upsert keeps end_date values fresh, preventing
     # stale promos from triggering false re-notifications.
