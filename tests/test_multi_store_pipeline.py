@@ -98,6 +98,28 @@ class TestMultiStorePipeline:
         assert notified[0].store == "steam"
         assert notified[0].title == "New Steam Game"
 
+    def test_no_new_games_logs_at_info_not_warning(self, caplog):
+        """A check that finds nothing new is a successful run, not a warning."""
+        main = _import_main()
+
+        known_epic = _epic_game("Known Epic Game", "https://store.epicgames.com/p/known-epic")
+
+        with patch("main.ENABLED_STORES", ["epic"]), \
+             patch("modules.scrapers.epic.EpicGamesScraper.fetch_free_games", return_value=[known_epic]), \
+             patch("main.load_previous_games", return_value=[known_epic]), \
+             patch("main.send_discord_message") as mock_send, \
+             patch("main.save_games"), \
+             caplog.at_level("INFO"):
+            main.check_games()
+
+        mock_send.assert_not_called()
+        warning_records = [r for r in caplog.records if r.levelname == "WARNING"]
+        assert warning_records == []
+        assert any(
+            r.levelname == "INFO" and "No new free games detected." in r.getMessage()
+            for r in caplog.records
+        )
+
     def test_no_notification_when_all_games_already_seen(self):
         """No Discord call when every game from both stores is already in previous_games."""
         main = _import_main()
