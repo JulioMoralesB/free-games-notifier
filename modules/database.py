@@ -5,6 +5,7 @@ import psycopg2
 
 from config import DB_CONNECT_TIMEOUT, DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
 from modules.models import FreeGame
+from modules.retry import with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,7 @@ class FreeGamesDatabase:
         ``alembic upgrade head`` manually only if you manage migrations
         outside the service startup flow (e.g., CI/CD or local maintenance).
         """
-        try:
+        def _connect_and_create_schema():
             with psycopg2.connect(**self.conn_params) as conn:
                 with conn.cursor() as cursor:
 
@@ -51,10 +52,28 @@ class FreeGamesDatabase:
                     """)
 
                     conn.commit()
-                    logger.info("Database initialized successfully.")
-        except Exception as e:
-            logger.error(f"Failed to initialize database: {e}")
+
+        try:
+            # Retries absorb the DNS-resolution race that happens when Postgres
+            # and this service start at the same time on a shared Docker network
+            # (e.g. a nightly backup restarting both containers). OperationalError
+            # covers connection-level failures like unresolved hostnames; other
+            # exceptions (bad SQL, permissions) are not transient and are not
+            # retried.
+            with_retry(
+                _connect_and_create_schema,
+                max_attempts=5,
+                base_delay=1,
+                retryable_exceptions=(psycopg2.OperationalError,),
+                description="database initialization",
+            )
+        except psycopg2.OperationalError:
+            # with_retry already logged a single ERROR line once retries were exhausted.
             raise
+        except Exception as e:
+            logger.error(f"Failed to initialize database: {str(e).strip()}")
+            raise
+        logger.info("Database initialized successfully.")
 
     @staticmethod
     def _make_game_id(store: str, url: str) -> str:
