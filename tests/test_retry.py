@@ -70,6 +70,24 @@ class TestWithRetry:
                            retryable_exceptions=(ValueError,))
         mock_sleep.assert_not_called()
 
+    def test_strips_trailing_newline_from_retry_warning(self, caplog):
+        func = MagicMock(side_effect=[ValueError("boom\n"), "ok"])
+        with patch("modules.retry.time.sleep"), caplog.at_level("WARNING"):
+            with_retry(func, max_attempts=2, base_delay=0,
+                       retryable_exceptions=(ValueError,))
+        for record in caplog.records:
+            assert "\n" not in record.getMessage()
+
+    def test_strips_trailing_newline_from_exhausted_error(self, caplog):
+        func = MagicMock(side_effect=ValueError("boom\n"))
+        with patch("modules.retry.time.sleep"), caplog.at_level("ERROR"):
+            with pytest.raises(ValueError):
+                with_retry(func, max_attempts=1, base_delay=0,
+                           retryable_exceptions=(ValueError,))
+        error_records = [r for r in caplog.records if r.levelname == "ERROR"]
+        assert len(error_records) == 1
+        assert "\n" not in error_records[0].getMessage()
+
 
 # ---------------------------------------------------------------------------
 # Tests for retry in fetch_free_games (scrapper)

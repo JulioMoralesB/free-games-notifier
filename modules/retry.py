@@ -35,6 +35,10 @@ def with_retry(func, max_attempts, base_delay, retryable_exceptions, description
             return func()
         except retryable_exceptions as exc:
             last_exception = exc
+            # Some drivers (e.g. psycopg2/libpq) embed a trailing newline in the
+            # exception message; strip it so it doesn't leak into the log's
+            # structured `message` field.
+            exc_text = str(exc).strip()
             if attempt < max_attempts - 1:
                 delay = base_delay * (2 ** attempt)
                 logger.warning(
@@ -43,7 +47,7 @@ def with_retry(func, max_attempts, base_delay, retryable_exceptions, description
                     max_attempts,
                     description,
                     type(exc).__name__,
-                    exc,
+                    exc_text,
                     delay,
                 )
                 time.sleep(delay)
@@ -53,6 +57,6 @@ def with_retry(func, max_attempts, base_delay, retryable_exceptions, description
                     max_attempts,
                     description,
                     type(exc).__name__,
-                    exc,
+                    exc_text,
                 )
     raise last_exception
