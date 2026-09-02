@@ -12,6 +12,8 @@ from config import (
     DB_HOST,
     ENABLED_STORES,
     HEALTHCHECK_INTERVAL,
+    LOG_FILE_PATH,
+    LOG_TO_FILE,
     SCHEDULE_TIME,
     TIMEZONE,
 )
@@ -24,7 +26,7 @@ from modules.notifier import send_discord_message
 from modules.scrapers import get_enabled_scrapers
 from modules.storage import load_previous_games, save_games, save_last_notification
 
-setup_logging(timezone=TIMEZONE, log_file="/mnt/logs/notifier.log")
+setup_logging(timezone=TIMEZONE, log_file=LOG_FILE_PATH, log_to_file=LOG_TO_FILE)
 
 logger = logging.getLogger(__name__)
 

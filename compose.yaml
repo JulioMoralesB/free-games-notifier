@@ -21,8 +21,9 @@ services:
       - type: bind
         source: ${DATA_PATH}
         target: /mnt/data
+      # Only written to when LOG_TO_FILE=true; harmless to leave unset otherwise.
       - type: bind
-        source: ${LOGS_PATH}
+        source: ${LOGS_PATH:-./logs}
         target: /mnt/logs
     extra_hosts:
       - "host.docker.internal:host-gateway"
