@@ -19,15 +19,14 @@
 
 ### 4. No logs appearing
 - **Problem**: `data/logs/notifier.log` doesn't exist
-- **Solution**: `mkdir -p data/logs && touch data/logs/notifier.log`
-- **Docker**: Mount volume: `-v $(pwd)/data/logs/notifier.log:/mnt/logs/notifier.log`
+- **Solution**: This is expected by default — logs go to stdout only (`docker logs free-games-notifier`). A file under `LOGS_PATH` is only written when `LOG_TO_FILE=true` is set; see [Configuration Reference → Logging](configuration.md#logging).
 
 ### 5. Games not detected
 - **Problem**: Service runs but no notifications are sent
 - **Solution**:
   - Check if the Epic Games API is responding (may be rate limited)
   - Verify the Discord webhook is still valid (webhooks can expire)
-  - Check logs: `grep ERROR /mnt/logs/notifier.log`
+  - Check logs: `docker logs free-games-notifier | grep ERROR` (or `grep ERROR /mnt/logs/notifier.log` if `LOG_TO_FILE=true`)
 
 ### 6. Health check monitor failing
 - **Problem**: Your configured health monitor reports the service as unhealthy

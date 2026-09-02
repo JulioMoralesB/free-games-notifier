@@ -45,7 +45,7 @@ At minimum, set `DISCORD_WEBHOOK_URL` in `.env`. See the [Configuration Referenc
 python main.py
 ```
 
-The scheduler logs to `/mnt/logs/notifier.log` by default. For local development, you can override the log path or simply tail stdout — both file and console handlers receive every entry.
+The scheduler logs structured JSON to stdout. File logging is off by default (see [Configuration Reference → Logging](configuration.md#logging)); set `LOG_TO_FILE=true` if you also want a rotating file under `LOGS_PATH` (`/mnt/logs/notifier.log` in the container).
 
 ## Running the dashboard with hot-reload
 

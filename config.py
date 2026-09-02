@@ -225,6 +225,12 @@ DATA_FILE_PATH = "/mnt/data/free_games.json" # This path can be overridden by mo
 # Path to store the last sent notification batch (used by the resend endpoint)
 LAST_NOTIFICATION_FILE_PATH = "/mnt/data/last_notification.json"
 
+# Rotating file logging under LOGS_PATH (/mnt/logs), in addition to stdout.
+# Off by default: stdout is already structured JSON and collected by the
+# container's own log pipeline, so a second copy on disk goes unread.
+LOG_TO_FILE = os.getenv("LOG_TO_FILE", "false").lower() == "true"
+LOG_FILE_PATH = "/mnt/logs/notifier.log"
+
 # URL to Healthcheck Monitor
 HEALTHCHECK_URL = os.getenv("HEALTHCHECK_URL")
 

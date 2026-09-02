@@ -74,6 +74,16 @@ See the [API Reference](api.md) for endpoint documentation.
 |----------|---------|-------------|
 | `DATE_FORMAT` | `%B %d, %Y at %I:%M %p` | strftime format for the promotion end date in Discord notifications. |
 
+## Logging
+
+All logs are structured JSON on stdout — view them with `docker logs free-games-notifier`, or point your log pipeline (journald, Promtail, etc.) at the container's stdout, and `level`/`logger`/`service` are already there as fields.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LOG_TO_FILE` | `false` | Also write a rotating log file under `LOGS_PATH`. Off by default — it duplicates the same records stdout already carries, and most container log pipelines don't read arbitrary bind-mounted files, so a second copy on disk usually goes unread. Enable it only if you're self-hosting without any log collection and want a plain file to `tail` or `grep`. |
+
+If you're upgrading from a version that always wrote to file, any leftover `notifier.log*` (or the older `checker.log*`) files under your `LOGS_PATH` directory are safe to delete — nothing reads them once `LOG_TO_FILE` is left at its default.
+
 ## Docker bind mounts
 
 Used by `compose.yaml` to persist data and logs on the host.
@@ -81,7 +91,7 @@ Used by `compose.yaml` to persist data and logs on the host.
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DATA_PATH` | `./data` | Host directory bind-mounted to `/mnt/data` in the container. |
-| `LOGS_PATH` | `./logs` | Host directory bind-mounted to `/mnt/logs` in the container. |
+| `LOGS_PATH` | `./logs` | Host directory bind-mounted to `/mnt/logs` in the container. Only relevant when `LOG_TO_FILE=true`. |
 
 ## Steam-specific notes
 

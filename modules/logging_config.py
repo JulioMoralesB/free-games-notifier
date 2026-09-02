@@ -64,24 +64,25 @@ class _JsonFormatter(_JsonFormatterBase):
             log_record.pop(key, None)
 
 
-def setup_logging(timezone: str = "UTC", log_file: str = "/mnt/logs/notifier.log") -> None:
+def setup_logging(
+    timezone: str = "UTC",
+    log_file: str = "/mnt/logs/notifier.log",
+    log_to_file: bool = False,
+) -> None:
     """
     Configure JSON structured logging for the application.
 
     Should be called once at startup before any loggers are used.
-    Both the rotating file and stdout receive the same JSON format.
+    stdout always receives JSON logs; the rotating file is opt-in (off by
+    default) since it duplicates data the container's log pipeline already
+    collects from stdout, unread.
 
     Args:
         timezone: IANA timezone string for log timestamps (e.g. "America/Mexico_City").
-        log_file: Absolute path to the rotating log file.
+        log_file: Absolute path to the rotating log file, used only when log_to_file is True.
+        log_to_file: Whether to also write logs to a rotating file at log_file.
     """
     formatter = _JsonFormatter(fmt="%(message)s", tz=timezone)
-
-    file_handler = logging.handlers.TimedRotatingFileHandler(
-        log_file, when="W1", interval=1, backupCount=4
-    )
-    file_handler.setLevel(logging.INFO)
-    file_handler.setFormatter(formatter)
 
     console_handler = logging.StreamHandler()
     console_handler.setLevel(logging.INFO)
@@ -92,5 +93,11 @@ def setup_logging(timezone: str = "UTC", log_file: str = "/mnt/logs/notifier.log
     # Only add handlers if none are configured yet (same behaviour as basicConfig without force).
     # This prevents overriding pytest's log capture during test runs.
     if not root.handlers:
-        root.addHandler(file_handler)
         root.addHandler(console_handler)
+        if log_to_file:
+            file_handler = logging.handlers.TimedRotatingFileHandler(
+                log_file, when="W1", interval=1, backupCount=4
+            )
+            file_handler.setLevel(logging.INFO)
+            file_handler.setFormatter(formatter)
+            root.addHandler(file_handler)

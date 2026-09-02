@@ -30,7 +30,9 @@ Open `.env` and set at minimum:
 DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_TOKEN
 ```
 
-The file already includes sensible defaults for `DATA_PATH` (`./data`) and `LOGS_PATH` (`./logs`), which Docker bind-mounts for persistent storage and logs. Change them to absolute paths if you prefer a specific location.
+The file already includes a sensible default for `DATA_PATH` (`./data`), which Docker bind-mounts for persistent storage. Change it to an absolute path if you prefer a specific location.
+
+Logs go to stdout by default — `docker logs free-games-notifier`, or your own log pipeline if the host collects container stdout. That's enough for most setups, and `LOGS_PATH` (`./logs`) doesn't need to be touched. If you're not running any log collection and want a plain file to `tail` instead, set `LOG_TO_FILE=true`; only then does the `LOGS_PATH` bind mount start being written to. See [Configuration Reference → Logging](configuration.md#logging) for details.
 
 Optionally set `REGION` to your IANA timezone string (e.g. `America/Mexico_City`) — this derives timezone, locale, Steam language, and country in one step. See the [Configuration Reference](configuration.md) for all options.
 
