@@ -82,8 +82,9 @@ curl -H "X-API-Key: $DASHBOARD_API_KEY" http://localhost:8000/api/summary
 ```json
 {
   "service": "free-games-notifier",
-  "games_tracked": 42,
-  "active_promotions": 3,
+  "active_promotions": [
+    { "title": "Celeste", "store": "epic", "end_date": "2026-09-10T16:00:00.000Z" }
+  ],
   "last_check_at": "2026-09-03T12:00:00+00:00"
 }
 ```
@@ -91,8 +92,10 @@ curl -H "X-API-Key: $DASHBOARD_API_KEY" http://localhost:8000/api/summary
 | Field | Type | Description |
 |---|---|---|
 | `service` | string | Always `"free-games-notifier"` — identifies the source when a poller tracks several services |
-| `games_tracked` | int | Total games currently in storage |
-| `active_promotions` | int | Of those, how many have not yet expired |
+| `active_promotions` | array | Games currently free, soonest-ending first. Games with no end date sort last |
+| `active_promotions[].title` | string | Game title |
+| `active_promotions[].store` | string | Store identifier, e.g. `epic`, `steam` |
+| `active_promotions[].end_date` | string | ISO-8601 timestamp when the free promotion ends |
 | `last_check_at` | string \| null | ISO-8601 UTC timestamp of the last scheduled check that ran to completion; `null` until the first one finishes after startup |
 
-Read-only and side-effect-free — a plain `GET` over already-loaded state, safe to poll frequently. If the storage backend can't be read, the endpoint returns `503` rather than a misleading `games_tracked: 0`; a poller should treat that the same as any other network failure, not as "zero games".
+Read-only and side-effect-free — a plain `GET` over already-loaded state, safe to poll frequently. If the storage backend can't be read, the endpoint returns `503` rather than a misleading empty list; a poller should treat that the same as any other network failure, not as "nothing is free right now".

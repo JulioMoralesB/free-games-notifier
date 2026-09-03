@@ -54,15 +54,17 @@ curl -H "X-API-Key: $DASHBOARD_API_KEY" http://localhost:8000/api/summary
 ```json
 {
   "service": "free-games-notifier",
-  "games_tracked": 42,
-  "active_promotions": 3,
+  "active_promotions": [
+    { "title": "Celeste", "store": "epic", "end_date": "2026-09-10T16:00:00.000Z" }
+  ],
   "last_check_at": "2026-09-03T12:00:00+00:00"
 }
 ```
 
 - **Auth is mandatory** — set `DASHBOARD_API_KEY` (a secret shared only with the poller; separate from `API_KEY`) and send it as `X-API-Key`. Unlike the rest of the API, there is no "leave empty to disable auth" fallback: an unset key rejects every request.
-- **Fails loud, never fakes it** — if storage can't be read, the endpoint returns `503` rather than a misleading `games_tracked: 0`.
+- **Fails loud, never fakes it** — if storage can't be read, the endpoint returns `503` rather than a misleading empty list.
 - **No writes, cheap to poll** — a plain `GET` that reads already-loaded state.
+- `active_promotions` lists currently-free games, soonest-ending first.
 - `last_check_at` is `null` until the first scheduled check completes after startup.
 
 See [docs/configuration.md](docs/configuration.md) for `DASHBOARD_API_KEY` details.

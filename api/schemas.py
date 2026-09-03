@@ -141,6 +141,20 @@ class ConfigResponse(BaseModel):
     )
 
 
+class SummaryActivePromotion(BaseModel):
+    """One currently-free game, as listed in SummaryResponse.active_promotions."""
+
+    title: str = Field(..., description="Name of the free game", examples=["Celeste"])
+    store: str = Field(
+        ..., description="Store identifier where the game is free", examples=["epic", "steam"]
+    )
+    end_date: str = Field(
+        ...,
+        description="ISO-8601 timestamp when the free promotion ends",
+        examples=["2026-09-10T16:00:00.000Z"],
+    )
+
+
 class SummaryResponse(BaseModel):
     """External summary contract for GET /api/summary.
 
@@ -155,13 +169,9 @@ class SummaryResponse(BaseModel):
         description="Identifies this service among others a poller may track",
         examples=["free-games-notifier"],
     )
-    games_tracked: int = Field(
-        ..., description="Total games currently in storage", examples=[42]
-    )
-    active_promotions: int = Field(
+    active_promotions: List[SummaryActivePromotion] = Field(
         ...,
-        description="Games among those tracked whose free promotion has not yet expired",
-        examples=[3],
+        description="Games currently free, soonest-ending first",
     )
     last_check_at: Optional[str] = Field(
         None,

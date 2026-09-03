@@ -45,12 +45,18 @@ def summary():
         logger.error("Failed to load games for summary: %s", e)
         raise HTTPException(status_code=503, detail="Storage backend unavailable")
 
+    active = [g for g in games if is_still_active(g)]
+    # Soonest-ending first; games with no end_date (permanent-style) sort last.
+    active.sort(key=lambda g: (not g.end_date, g.end_date))
+
     last_check = get_last_check_completed_at()
 
     return {
         "service": SERVICE_NAME,
-        "games_tracked": len(games),
-        "active_promotions": sum(1 for g in games if is_still_active(g)),
+        "active_promotions": [
+            {"title": g.title, "store": g.store, "end_date": g.end_date}
+            for g in active
+        ],
         "last_check_at": (
             datetime.fromtimestamp(last_check, tz=timezone.utc).isoformat()
             if last_check is not None
