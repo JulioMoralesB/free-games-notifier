@@ -141,6 +141,38 @@ class ConfigResponse(BaseModel):
     )
 
 
+class SummaryResponse(BaseModel):
+    """External summary contract for GET /api/summary.
+
+    This is a stable, versioned contract polled by other services (e.g. the
+    dashboard) — see docs/api.md#dashboard-summary-contract. Fields are
+    additive-only: never repurpose, remove, or change the meaning of an
+    existing field here. A breaking change means a new endpoint path.
+    """
+
+    service: str = Field(
+        ...,
+        description="Identifies this service among others a poller may track",
+        examples=["free-games-notifier"],
+    )
+    games_tracked: int = Field(
+        ..., description="Total games currently in storage", examples=[42]
+    )
+    active_promotions: int = Field(
+        ...,
+        description="Games among those tracked whose free promotion has not yet expired",
+        examples=[3],
+    )
+    last_check_at: Optional[str] = Field(
+        None,
+        description=(
+            "ISO-8601 UTC timestamp of the last scheduled check that ran to "
+            "completion, or null if none has run yet since the service started."
+        ),
+        examples=["2026-09-03T12:00:00+00:00"],
+    )
+
+
 class CheckE2EResponse(BaseModel):
     """Response from the end-to-end check endpoint."""
 

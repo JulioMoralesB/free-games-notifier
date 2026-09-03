@@ -98,6 +98,33 @@ class TestMultiStorePipeline:
         assert notified[0].store == "steam"
         assert notified[0].title == "New Steam Game"
 
+    def test_records_check_completed_on_normal_run(self):
+        """A run that reaches the end of check_games() marks it complete, for /api/summary."""
+        main = _import_main()
+        epic_game = _epic_game("Epic Freebie", "https://store.epicgames.com/p/epic-freebie")
+
+        with patch("main.ENABLED_STORES", ["epic"]), \
+             patch("modules.scrapers.epic.EpicGamesScraper.fetch_free_games", return_value=[epic_game]), \
+             patch("main.load_previous_games", return_value=[]), \
+             patch("main.send_discord_message"), \
+             patch("main.save_last_notification"), \
+             patch("main.save_games"), \
+             patch("main.record_check_completed") as mock_record:
+            main.check_games()
+
+        mock_record.assert_called_once()
+
+    def test_does_not_record_check_completed_when_no_games_fetched(self):
+        """An early return (nothing fetched from any store) is not a completed check."""
+        main = _import_main()
+
+        with patch("main.ENABLED_STORES", ["epic"]), \
+             patch("modules.scrapers.epic.EpicGamesScraper.fetch_free_games", return_value=[]), \
+             patch("main.record_check_completed") as mock_record:
+            main.check_games()
+
+        mock_record.assert_not_called()
+
     def test_no_new_games_logs_at_info_not_warning(self, caplog):
         """A check that finds nothing new is a successful run, not a warning."""
         main = _import_main()

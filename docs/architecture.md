@@ -17,7 +17,8 @@ A high-level overview of how the project is structured and how data flows throug
 │       ├── system.py             #     /health, /metrics, /config
 │       ├── games.py              #     /games/latest, /games/history
 │       ├── notifications.py      #     /notify/discord/resend
-│       └── checks.py             #     /check
+│       ├── checks.py             #     /check
+│       └── summary.py            #     /api/summary — external dashboard contract
 ├── config.py                     # Environment variables + region profiles
 ├── requirements.txt              # Python runtime dependencies
 ├── requirements-dev.txt          # Test + lint dependencies
@@ -43,6 +44,7 @@ A high-level overview of how the project is structured and how data flows throug
 │   ├── healthcheck.py            # External health check pings
 │   ├── retry.py                  # Generic exponential-backoff helper
 │   ├── logging_config.py         # JSON structured logging setup
+│   ├── scheduler_state.py        # In-memory "last check completed" timestamp, read by /api/summary
 │   └── scrapers/
 │       ├── base.py               # Scraper interface
 │       ├── epic.py               # Epic Games Store scraper

@@ -23,6 +23,7 @@ from modules.dedupe import find_new_games, is_still_active
 from modules.healthcheck import healthcheck
 from modules.logging_config import setup_logging
 from modules.notifier import send_discord_message
+from modules.scheduler_state import record_check_completed
 from modules.scrapers import get_enabled_scrapers
 from modules.storage import load_previous_games, save_games, save_last_notification
 
@@ -142,6 +143,10 @@ def check_games():
     except Exception as e:
         logger.error("Unexpected error saving games: %s", e)
         logger.warning("Failed to update local cache.")
+
+    # Reached only when the check ran to completion (fetch, dedupe, notify) —
+    # not on the early returns above. Read by the dashboard summary endpoint.
+    record_check_completed()
 
 
 def _start_api_server():

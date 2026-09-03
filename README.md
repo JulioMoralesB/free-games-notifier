@@ -43,6 +43,30 @@ For a step-by-step walkthrough, optional PostgreSQL setup, version pinning, and 
 | Dashboard development | [docs/dashboard.md](docs/dashboard.md) |
 | Troubleshooting | [docs/troubleshooting.md](docs/troubleshooting.md) |
 
+## External integration contract
+
+`GET /api/summary` is a small, stable endpoint for other services on your network to poll (e.g. a homelab dashboard) — separate from the general REST API described in [docs/api.md](docs/api.md), which is free to change. This one isn't: fields are **additive-only**, so existing integrations never break.
+
+```bash
+curl -H "X-API-Key: $DASHBOARD_API_KEY" http://localhost:8000/api/summary
+```
+
+```json
+{
+  "service": "free-games-notifier",
+  "games_tracked": 42,
+  "active_promotions": 3,
+  "last_check_at": "2026-09-03T12:00:00+00:00"
+}
+```
+
+- **Auth is mandatory** — set `DASHBOARD_API_KEY` (a secret shared only with the poller; separate from `API_KEY`) and send it as `X-API-Key`. Unlike the rest of the API, there is no "leave empty to disable auth" fallback: an unset key rejects every request.
+- **Fails loud, never fakes it** — if storage can't be read, the endpoint returns `503` rather than a misleading `games_tracked: 0`.
+- **No writes, cheap to poll** — a plain `GET` that reads already-loaded state.
+- `last_check_at` is `null` until the first scheduled check completes after startup.
+
+See [docs/configuration.md](docs/configuration.md) for `DASHBOARD_API_KEY` details.
+
 ## Roadmap
 
 - [x] Multi-store support (Epic + Steam)

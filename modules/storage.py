@@ -17,18 +17,28 @@ def _is_db_configured():
 # Public interface (used by main.py)
 # ---------------------------------------------------------------------------
 
-def load_previous_games():
+def load_previous_games(*, strict: bool = False):
     """
     Load the last known free games from the configured storage backend.
 
     Uses PostgreSQL when DB_HOST is set, otherwise falls back to the JSON file.
 
+    Args:
+        strict: When False (default), storage errors are swallowed and an
+            empty list is returned, same as "no games yet" — this is what
+            the scheduler and the read-only game endpoints want, since they
+            already handle an empty result gracefully. When True, storage
+            errors are re-raised instead, for callers (e.g. the dashboard
+            summary endpoint) that must not report a fabricated zero when
+            storage is actually unreachable.
+
     Returns:
-        list: Previously saved games, or empty list on error / first run.
+        list: Previously saved games, or empty list on error / first run
+            (unless strict=True, in which case errors propagate).
     """
     if _is_db_configured():
-        return _load_from_db()
-    return _load_from_file()
+        return _load_from_db(strict=strict)
+    return _load_from_file(strict=strict)
 
 
 def save_games(games):
@@ -86,7 +96,7 @@ def load_last_notification():
 # PostgreSQL backend
 # ---------------------------------------------------------------------------
 
-def _load_from_db():
+def _load_from_db(*, strict: bool = False):
     from modules.database import FreeGamesDatabase
     try:
         db = FreeGamesDatabase()
@@ -95,6 +105,8 @@ def _load_from_db():
         return games
     except Exception as e:
         logger.error(f"Failed to load games from database: {e}")
+        if strict:
+            raise
         return []
 
 
@@ -137,14 +149,17 @@ def _load_last_notification_from_db():
 # JSON file backend (development / fallback when DB_HOST is not set)
 # ---------------------------------------------------------------------------
 
-def _load_from_file():
+def _load_from_file(*, strict: bool = False):
     """
     Load the last known free games from file.
 
     Returns:
-        list: Previously saved games as FreeGame objects, or empty list if file doesn't exist or is corrupted.
+        list: Previously saved games as FreeGame objects, or empty list if file doesn't exist or is corrupted
+            (unless strict=True, in which case corruption/IO errors raise instead of returning []).
     """
     if not os.path.exists(DATA_FILE_PATH):
+        # Legitimately empty state (first run) — not an error, so this is
+        # never raised even in strict mode.
         logger.debug(f"Data file does not exist yet: {DATA_FILE_PATH}")
         return []
 
@@ -158,6 +173,8 @@ def _load_from_file():
                     f"Unexpected JSON structure in data file: expected list, got {type(data).__name__} | "
                     f"File path: {DATA_FILE_PATH}"
                 )
+                if strict:
+                    raise ValueError(f"Unexpected JSON structure in data file: expected list, got {type(data).__name__}")
                 logger.warning("Returning empty list due to invalid JSON structure to prevent incorrect processing.")
                 return []
 
@@ -166,6 +183,8 @@ def _load_from_file():
                     f"Unexpected item types in games list from data file. "
                     f"Expected list of dicts. File path: {DATA_FILE_PATH}"
                 )
+                if strict:
+                    raise ValueError("Unexpected item types in games list from data file: expected list of dicts")
                 logger.warning("Returning empty list due to invalid game entries to prevent incorrect processing.")
                 return []
 
@@ -174,16 +193,24 @@ def _load_from_file():
             return games
     except FileNotFoundError:
         logger.error(f"Data file not found when attempting to read: {DATA_FILE_PATH}")
+        if strict:
+            raise
         return []
     except IOError as e:
         logger.error(f"I/O error reading data file: {str(e)} | File path: {DATA_FILE_PATH}")
+        if strict:
+            raise
         return []
     except json.JSONDecodeError as e:
         logger.error(f"JSON decode error in data file: {str(e)} | File path: {DATA_FILE_PATH} | Line: {e.lineno}, Column: {e.colno}")
+        if strict:
+            raise
         logger.warning("Returning empty list to prevent scheduler crash. File may be corrupted.")
         return []
     except Exception as e:
         logger.error(f"Unexpected error loading previous games: {str(e)} | File path: {DATA_FILE_PATH}")
+        if strict:
+            raise
         return []
 
 

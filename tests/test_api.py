@@ -369,6 +369,106 @@ class TestAPIKeyAuth:
 
 
 # ---------------------------------------------------------------------------
+# GET /api/summary
+# ---------------------------------------------------------------------------
+
+def _game(title, end_date, store="epic"):
+    from modules.models import FreeGame
+    return FreeGame(
+        title=title,
+        store=store,
+        url=f"https://store.epicgames.com/p/{title.lower().replace(' ', '-')}",
+        image_url="https://example.com/thumb.jpg",
+        original_price=None,
+        end_date=end_date,
+        is_permanent=False,
+        description="",
+    )
+
+
+class TestSummaryEndpoint:
+    FUTURE = "2099-01-01T00:00:00.000Z"
+    PAST = "2020-01-01T00:00:00.000Z"
+
+    def test_requires_dashboard_key_even_when_unset(self, client):
+        """No 'open when unset' fallback: unlike API_KEY, an unset DASHBOARD_API_KEY refuses everyone."""
+        with patch("api.auth.DASHBOARD_API_KEY", None):
+            resp = client.get("/api/summary", headers={"X-API-Key": "anything"})
+        assert resp.status_code == 401
+
+    def test_rejects_missing_key(self, client):
+        with patch("api.auth.DASHBOARD_API_KEY", "secret"):
+            resp = client.get("/api/summary")
+        assert resp.status_code == 401
+
+    def test_rejects_wrong_key(self, client):
+        with patch("api.auth.DASHBOARD_API_KEY", "secret"):
+            resp = client.get("/api/summary", headers={"X-API-Key": "wrong"})
+        assert resp.status_code == 401
+
+    def test_valid_key_returns_summary(self, client):
+        games = [self._game_active("A"), self._game_expired("B")]
+        with patch("api.auth.DASHBOARD_API_KEY", "secret"), \
+             patch("api.routes.summary.load_previous_games", return_value=games), \
+             patch("api.routes.summary.get_last_check_completed_at", return_value=1893456000.0):
+            resp = client.get("/api/summary", headers={"X-API-Key": "secret"})
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["service"] == "free-games-notifier"
+        assert data["games_tracked"] == 2
+        assert data["active_promotions"] == 1
+        assert data["last_check_at"] is not None
+
+    def test_last_check_at_is_null_when_no_check_has_run_yet(self, client):
+        with patch("api.auth.DASHBOARD_API_KEY", "secret"), \
+             patch("api.routes.summary.load_previous_games", return_value=[]), \
+             patch("api.routes.summary.get_last_check_completed_at", return_value=None):
+            resp = client.get("/api/summary", headers={"X-API-Key": "secret"})
+
+        assert resp.status_code == 200
+        assert resp.json()["last_check_at"] is None
+
+    def test_returns_503_instead_of_a_fabricated_zero_when_storage_fails(self, client):
+        """Storage being broken must surface as an error, not a misleading games_tracked=0."""
+        with patch("api.auth.DASHBOARD_API_KEY", "secret"), \
+             patch("api.routes.summary.load_previous_games", side_effect=RuntimeError("db down")):
+            resp = client.get("/api/summary", headers={"X-API-Key": "secret"})
+
+        assert resp.status_code == 503
+
+    def test_performs_no_writes(self, client):
+        """The endpoint must never call any save/persist function."""
+        with patch("api.auth.DASHBOARD_API_KEY", "secret"), \
+             patch("api.routes.summary.load_previous_games", return_value=[]) as mock_load, \
+             patch("modules.storage.save_games") as mock_save:
+            resp = client.get("/api/summary", headers={"X-API-Key": "secret"})
+
+        assert resp.status_code == 200
+        mock_load.assert_called_once()
+        mock_save.assert_not_called()
+
+    def test_exact_response_shape(self, client):
+        """Pin the contract: exactly these four fields, nothing more, nothing less."""
+        with patch("api.auth.DASHBOARD_API_KEY", "secret"), \
+             patch("api.routes.summary.load_previous_games", return_value=[]), \
+             patch("api.routes.summary.get_last_check_completed_at", return_value=None):
+            resp = client.get("/api/summary", headers={"X-API-Key": "secret"})
+
+        assert set(resp.json().keys()) == {
+            "service", "games_tracked", "active_promotions", "last_check_at",
+        }
+
+    @staticmethod
+    def _game_active(title):
+        return _game(title, TestSummaryEndpoint.FUTURE)
+
+    @staticmethod
+    def _game_expired(title):
+        return _game(title, TestSummaryEndpoint.PAST)
+
+
+# ---------------------------------------------------------------------------
 # increment_metric helper
 # ---------------------------------------------------------------------------
 

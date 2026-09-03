@@ -80,6 +80,67 @@ class TestLoadPreviousGames:
 
 
 # ---------------------------------------------------------------------------
+# Tests for load_previous_games(strict=True)
+# ---------------------------------------------------------------------------
+
+class TestLoadPreviousGamesStrict:
+    """strict=True must raise instead of swallowing real storage errors,
+    while still treating a legitimately-empty first run as [] (not an error)."""
+
+    def test_missing_file_is_not_an_error_even_when_strict(self, tmp_path):
+        path = str(tmp_path / "nonexistent.json")
+        with patch("modules.storage.DB_HOST", None), \
+             patch("modules.storage.DATA_FILE_PATH", path):
+            result = storage.load_previous_games(strict=True)
+        assert result == []
+
+    def test_raises_on_corrupted_json_when_strict(self, tmp_path):
+        path = str(tmp_path / "games.json")
+        with open(path, "w") as f:
+            f.write("this is not valid json {{{{")
+        with patch("modules.storage.DB_HOST", None), \
+             patch("modules.storage.DATA_FILE_PATH", path):
+            with pytest.raises(json.JSONDecodeError):
+                storage.load_previous_games(strict=True)
+
+    def test_raises_when_data_is_not_a_list_and_strict(self, tmp_path):
+        path = str(tmp_path / "games.json")
+        with open(path, "w") as f:
+            json.dump({"key": "value"}, f)
+        with patch("modules.storage.DB_HOST", None), \
+             patch("modules.storage.DATA_FILE_PATH", path):
+            with pytest.raises(ValueError):
+                storage.load_previous_games(strict=True)
+
+    def test_raises_on_io_error_when_strict(self, tmp_path):
+        path = str(tmp_path / "games.json")
+        (tmp_path / "games.json").write_text("[]")
+        with patch("modules.storage.DB_HOST", None), \
+             patch("modules.storage.DATA_FILE_PATH", path), \
+             patch("builtins.open", side_effect=IOError("disk read error")):
+            with pytest.raises(IOError):
+                storage.load_previous_games(strict=True)
+
+    def test_non_strict_default_still_swallows_errors(self, tmp_path):
+        """Existing (non-strict) behavior is unchanged."""
+        path = str(tmp_path / "games.json")
+        with open(path, "w") as f:
+            f.write("not json")
+        with patch("modules.storage.DB_HOST", None), \
+             patch("modules.storage.DATA_FILE_PATH", path):
+            result = storage.load_previous_games()
+        assert result == []
+
+    def test_raises_on_db_error_when_strict(self):
+        mock_db = MagicMock()
+        mock_db.get_games.side_effect = RuntimeError("connection lost")
+        with patch("modules.storage.DB_HOST", "localhost"), \
+             patch("modules.database.FreeGamesDatabase", return_value=mock_db):
+            with pytest.raises(RuntimeError):
+                storage.load_previous_games(strict=True)
+
+
+# ---------------------------------------------------------------------------
 # Tests for save_games
 # ---------------------------------------------------------------------------
 
