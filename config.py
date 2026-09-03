@@ -309,6 +309,14 @@ DATE_FORMAT = os.getenv("DATE_FORMAT", "%B %d, %Y at %I:%M %p")
 
 # REST API configuration
 API_KEY = os.getenv("API_KEY")  # Secret key for mutating API endpoints; leave empty to disable auth
+
+# Shared secret for GET /api/summary, the small external contract endpoint
+# other services on the LAN (e.g. the dashboard) poll. Unlike API_KEY above,
+# this has no "leave empty to disable auth" fallback: the endpoint always
+# requires it, since it's meant for another service to authenticate with,
+# not for convenient local development.
+DASHBOARD_API_KEY = os.getenv("DASHBOARD_API_KEY")
+
 API_HOST = os.getenv("API_HOST", "0.0.0.0")
 _raw_api_port = os.getenv("API_PORT")
 try:

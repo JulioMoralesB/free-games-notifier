@@ -141,6 +141,48 @@ class ConfigResponse(BaseModel):
     )
 
 
+class SummaryActivePromotion(BaseModel):
+    """One currently-free game, as listed in SummaryResponse.active_promotions."""
+
+    title: str = Field(..., description="Name of the free game", examples=["Celeste"])
+    store: str = Field(
+        ..., description="Store identifier where the game is free", examples=["epic", "steam"]
+    )
+    end_date: str = Field(
+        ...,
+        description="ISO-8601 timestamp when the free promotion ends",
+        examples=["2026-09-10T16:00:00.000Z"],
+    )
+
+
+class SummaryResponse(BaseModel):
+    """External summary contract for GET /api/summary.
+
+    This is a stable, versioned contract polled by other services (e.g. the
+    dashboard) — see docs/api.md#dashboard-summary-contract. Fields are
+    additive-only: never repurpose, remove, or change the meaning of an
+    existing field here. A breaking change means a new endpoint path.
+    """
+
+    service: str = Field(
+        ...,
+        description="Identifies this service among others a poller may track",
+        examples=["free-games-notifier"],
+    )
+    active_promotions: List[SummaryActivePromotion] = Field(
+        ...,
+        description="Games currently free, soonest-ending first",
+    )
+    last_check_at: Optional[str] = Field(
+        None,
+        description=(
+            "ISO-8601 UTC timestamp of the last scheduled check that ran to "
+            "completion, or null if none has run yet since the service started."
+        ),
+        examples=["2026-09-03T12:00:00+00:00"],
+    )
+
+
 class CheckE2EResponse(BaseModel):
     """Response from the end-to-end check endpoint."""
 

@@ -67,6 +67,7 @@ See the [API Reference](api.md) for endpoint documentation.
 | `API_HOST` | `0.0.0.0` | Interface the REST API and dashboard server binds to. |
 | `API_PORT` | `8000` | Port the REST API and dashboard server listens on. |
 | `API_KEY` | _(empty)_ | Secret key for protecting mutating API endpoints and `GET /config`. Leave empty to disable auth. |
+| `DASHBOARD_API_KEY` | _(empty)_ | Shared secret for `GET /api/summary`, the external contract endpoint other services poll (see [API Reference → Dashboard summary contract](api.md#dashboard-summary-contract)). Unlike `API_KEY`, there is no "leave empty to disable auth" — the endpoint rejects every request until this is set. |
 
 ## Notifications
 

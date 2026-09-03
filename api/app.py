@@ -5,7 +5,7 @@ import os
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from api.routes import checks, games, notifications, system
+from api.routes import checks, games, notifications, summary, system
 
 app = FastAPI(
     title="Free Games Notifier API",
@@ -18,6 +18,7 @@ app.include_router(system.router)
 app.include_router(games.router)
 app.include_router(notifications.router)
 app.include_router(checks.router)
+app.include_router(summary.router)
 
 # ---------------------------------------------------------------------------
 # Dashboard – serve the pre-built React/TypeScript frontend
