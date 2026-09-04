@@ -67,7 +67,7 @@ For production builds and instructions on adding a new language, see the [Dashbo
 pytest tests/ -v
 ```
 
-Tests cover both file-backend and PostgreSQL-backend paths. File-backend tests explicitly set `DB_HOST=None` to remain hermetic.
+Unit tests mock the database layer (`FreeGamesDatabase`) directly, so they don't need a real PostgreSQL instance running. The integration/e2e suites, which do need one, are excluded by the `-m "not integration and not production"` filter below.
 
 To run just the unit tests (excluding integration and production smoke tests):
 

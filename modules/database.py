@@ -5,7 +5,6 @@ import psycopg2
 
 from config import DB_CONNECT_TIMEOUT, DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
 from modules.models import FreeGame
-from modules.retry import with_retry
 
 logger = logging.getLogger(__name__)
 
@@ -19,61 +18,6 @@ class FreeGamesDatabase:
             "password": DB_PASSWORD,
             "connect_timeout": DB_CONNECT_TIMEOUT,
         }
-
-    def init_db(self):
-        """Initialize the database by creating the schema and tables.
-
-        Schema migrations (column type changes, etc.) are managed by Alembic.
-        In normal deployments, migrations are applied automatically on service
-        startup (see main.py) when ``DB_HOST`` is configured. Run
-        ``alembic upgrade head`` manually only if you manage migrations
-        outside the service startup flow (e.g., CI/CD or local maintenance).
-        """
-        def _connect_and_create_schema():
-            with psycopg2.connect(**self.conn_params) as conn:
-                with conn.cursor() as cursor:
-
-                    # Ensure the schema exists before setting it as search path
-                    cursor.execute("CREATE SCHEMA IF NOT EXISTS free_games")
-
-                    # Set schema for this connection
-                    cursor.execute("SET search_path TO free_games")
-
-                    cursor.execute("""
-                        CREATE TABLE IF NOT EXISTS games (
-                            id SERIAL PRIMARY KEY,
-                            game_id TEXT UNIQUE NOT NULL,
-                            title TEXT NOT NULL,
-                            link TEXT NOT NULL,
-                            description TEXT,
-                            thumbnail TEXT,
-                            promotion_end_date TEXT
-                        )
-                    """)
-
-                    conn.commit()
-
-        try:
-            # Retries absorb the DNS-resolution race that happens when Postgres
-            # and this service start at the same time on a shared Docker network
-            # (e.g. a nightly backup restarting both containers). OperationalError
-            # covers connection-level failures like unresolved hostnames; other
-            # exceptions (bad SQL, permissions) are not transient and are not
-            # retried.
-            with_retry(
-                _connect_and_create_schema,
-                max_attempts=5,
-                base_delay=1,
-                retryable_exceptions=(psycopg2.OperationalError,),
-                description="database initialization",
-            )
-        except psycopg2.OperationalError:
-            # with_retry already logged a single ERROR line once retries were exhausted.
-            raise
-        except Exception as e:
-            logger.error(f"Failed to initialize database: {str(e).strip()}")
-            raise
-        logger.info("Database initialized successfully.")
 
     @staticmethod
     def _make_game_id(store: str, url: str) -> str:

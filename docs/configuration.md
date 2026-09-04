@@ -29,17 +29,18 @@ The `REGION` variable is the recommended way to localize the service — set one
 | `EPIC_GAMES_API_URL` | Official API | Override for the Epic Games Store API endpoint. |
 | `STEAM_REQUEST_DELAY_MS` | `1500` | Milliseconds to wait between Steam HTTP requests to avoid rate limiting. |
 
-## Database (Optional)
+## Database
 
-Leave all `DB_*` variables empty to use JSON file storage. See [Storage Backends](storage-backends.md) for a comparison.
+PostgreSQL is required — there is no other storage backend. `docker compose up` bundles a Postgres service, and `DATABASE_URL` defaults to pointing at it (see `compose.yaml`), so most self-hosters never need to set anything here.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DB_HOST` | _(empty)_ | PostgreSQL host. Empty = file storage. |
-| `DB_PORT` | `5432` | PostgreSQL port. |
-| `DB_NAME` | _(empty)_ | PostgreSQL database name. |
-| `DB_USER` | _(empty)_ | PostgreSQL username. |
-| `DB_PASSWORD` | _(empty)_ | PostgreSQL password. |
+| `DATABASE_URL` | Points at the bundled Postgres service | `postgresql://user:password@host:port/dbname`. Set this to point at a different instance (one you already run, a managed database, etc.) instead of the bundled one. |
+| `POSTGRES_USER` | `freegames` | Username the *bundled* Postgres service creates itself with. Only relevant when you leave `DATABASE_URL` unset. |
+| `POSTGRES_PASSWORD` | `changeme` | Password for the bundled service's user. Set a real password if you expose this beyond your own network. |
+| `POSTGRES_DB` | `freegames` | Database name the bundled service creates. |
+| `DB_CONNECT_TIMEOUT` | `10` | Seconds; applies to all database operations. |
+| `DB_HEALTH_CHECK_TIMEOUT` | `5` | Seconds; shorter timeout used by the `/health` liveness check. |
 
 ## Scheduler
 
@@ -87,11 +88,10 @@ If you're upgrading from a version that always wrote to file, any leftover `noti
 
 ## Docker bind mounts
 
-Used by `compose.yaml` to persist data and logs on the host.
+Used by `compose.yaml` to persist logs on the host. Database data persists separately, in the named Docker volume `postgres-data` (see `compose.yaml`), not a bind mount.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DATA_PATH` | `./data` | Host directory bind-mounted to `/mnt/data` in the container. |
 | `LOGS_PATH` | `./logs` | Host directory bind-mounted to `/mnt/logs` in the container. Only relevant when `LOG_TO_FILE=true`. |
 
 ## Steam-specific notes

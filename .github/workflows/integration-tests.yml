@@ -24,14 +24,16 @@ jobs:
       - name: Load test environment variables
         run: cp .env.test .env
 
-      - name: Create required directories and Docker network
+      - name: Create required directories
         run: |
-          mkdir -p /tmp/free-games-test-data /tmp/free-games-test-logs
-          sudo chown -R 1000:1000 /tmp/free-games-test-data /tmp/free-games-test-logs
-          docker network create apollo-server-network || true
+          mkdir -p /tmp/free-games-test-logs
+          sudo chown -R 1000:1000 /tmp/free-games-test-logs
 
       - name: Start Docker container
-        run: docker compose up -d
+        # --build: test the code in this checkout, not whatever :latest happens
+        # to be on GHCR. Without it, compose prefers the pre-built `image:` and
+        # silently skips the Dockerfile entirely.
+        run: docker compose up -d --build
 
       - name: Wait for container to be healthy
         run: |

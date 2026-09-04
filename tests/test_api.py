@@ -26,21 +26,25 @@ def client():
 # ---------------------------------------------------------------------------
 
 class TestHealthEndpoint:
-    def test_returns_healthy_when_api_reachable(self, client):
+    def test_returns_healthy_when_api_and_db_reachable(self, client):
         mock_resp = MagicMock()
         mock_resp.status_code = 200
+        mock_conn = MagicMock()
         with patch("api.routes.system.requests.get", return_value=mock_resp), \
-             patch("api.routes.system.DB_HOST", None):
+             patch("api.routes.system.DB_HOST", "localhost"), \
+             patch("psycopg2.connect", return_value=mock_conn):
             resp = client.get("/health")
         assert resp.status_code == 200
         data = resp.json()
         assert data["epic_games_api"] == "healthy"
-        assert data["database"] == "not_configured"
+        assert data["database"] == "healthy"
         assert data["status"] == "healthy"
 
     def test_returns_unhealthy_when_api_unreachable(self, client):
+        mock_conn = MagicMock()
         with patch("api.routes.system.requests.get", side_effect=Exception("timeout")), \
-             patch("api.routes.system.DB_HOST", None):
+             patch("api.routes.system.DB_HOST", "localhost"), \
+             patch("psycopg2.connect", return_value=mock_conn):
             resp = client.get("/health")
         data = resp.json()
         assert data["epic_games_api"] == "unhealthy"
@@ -49,8 +53,10 @@ class TestHealthEndpoint:
     def test_returns_unhealthy_on_non_200_status(self, client):
         mock_resp = MagicMock()
         mock_resp.status_code = 500
+        mock_conn = MagicMock()
         with patch("api.routes.system.requests.get", return_value=mock_resp), \
-             patch("api.routes.system.DB_HOST", None):
+             patch("api.routes.system.DB_HOST", "localhost"), \
+             patch("psycopg2.connect", return_value=mock_conn):
             resp = client.get("/health")
         data = resp.json()
         assert data["epic_games_api"] == "unhealthy"
@@ -79,6 +85,18 @@ class TestHealthEndpoint:
              patch("api.routes.system.DB_NAME", "test"), \
              patch("api.routes.system.DB_USER", "user"), \
              patch("psycopg2.connect", side_effect=Exception("connection refused")):
+            resp = client.get("/health")
+        data = resp.json()
+        assert data["database"] == "unhealthy"
+        assert data["status"] == "unhealthy"
+
+    def test_database_unhealthy_when_db_host_unset(self, client):
+        """DB is mandatory: an unset DB_HOST is a misconfiguration, reported as unhealthy."""
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        with patch("api.routes.system.requests.get", return_value=mock_resp), \
+             patch("api.routes.system.DB_HOST", None), \
+             patch("psycopg2.connect", side_effect=Exception("no host")):
             resp = client.get("/health")
         data = resp.json()
         assert data["database"] == "unhealthy"

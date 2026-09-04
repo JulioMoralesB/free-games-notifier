@@ -10,16 +10,25 @@ import os
 
 import psycopg2
 from alembic.config import Config as AlembicConfig
+from sqlalchemy.exc import OperationalError
 
 from alembic import command as alembic_command
 from config import DB_CONNECT_TIMEOUT, DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
+from modules.retry import with_retry
 
 logger = logging.getLogger(__name__)
 
 
 def run_db_migrations() -> None:
-    """Apply any pending Alembic migrations up to the latest revision."""
-    logger.info("Applying database migrations...")
+    """Apply any pending Alembic migrations up to the latest revision.
+
+    This is the first database connection this service makes at startup, so
+    it retries on connection-level failures: absorbs the DNS-resolution race
+    that happens when Postgres and this service start at the same time on a
+    shared Docker network (e.g. a nightly backup restarting both containers).
+    OperationalError covers that; anything else (bad migration SQL,
+    permissions) is not transient and is not retried.
+    """
     # Suppress verbose per-revision Alembic log lines from service logs.
     # env.py skips fileConfig when the service's logging is already configured,
     # but raise the level here as well to guard against any propagation.
@@ -27,7 +36,22 @@ def run_db_migrations() -> None:
     cfg = AlembicConfig(
         os.path.join(os.path.dirname(os.path.dirname(__file__)), "alembic.ini")
     )
-    alembic_command.upgrade(cfg, "head")
+
+    def _upgrade():
+        logger.info("Applying database migrations...")
+        alembic_command.upgrade(cfg, "head")
+
+    try:
+        with_retry(
+            _upgrade,
+            max_attempts=5,
+            base_delay=1,
+            retryable_exceptions=(OperationalError,),
+            description="database migrations",
+        )
+    except OperationalError:
+        # with_retry already logged a single ERROR line once retries were exhausted.
+        raise
     logger.info("Database migrations applied successfully.")
 
 

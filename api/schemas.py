@@ -53,9 +53,7 @@ class HealthResponse(BaseModel):
         ..., description="Epic Games API reachability", examples=["healthy", "unhealthy"]
     )
     database: str = Field(
-        ...,
-        description="Database connectivity status",
-        examples=["healthy", "unhealthy", "not_configured"],
+        ..., description="Database connectivity status", examples=["healthy", "unhealthy"]
     )
 
 
@@ -111,7 +109,6 @@ class ConfigResponse(BaseModel):
     epic_games_region: str = Field(
         ..., description="Region code used in store links", examples=["en-US"]
     )
-    data_file_path: str = Field(..., description="Path to the JSON storage file")
     enable_healthcheck: bool = Field(
         ..., description="Whether the external health check ping is enabled"
     )
@@ -122,7 +119,7 @@ class ConfigResponse(BaseModel):
         ..., description="Interval in minutes between health check pings", examples=[1]
     )
     db_host: Optional[str] = Field(
-        None, description="PostgreSQL host (None when DB is not configured)"
+        None, description="PostgreSQL host, parsed from DATABASE_URL"
     )
     db_port: int = Field(..., description="PostgreSQL port", examples=[5432])
     db_name: Optional[str] = Field(None, description="PostgreSQL database name")

@@ -1,13 +1,11 @@
 import logging
 import os
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
-
-# Ensure data directory exists
-os.makedirs("data", exist_ok=True)
 
 # Epic Games API URL
 EPIC_GAMES_API_URL = os.getenv("EPIC_GAMES_API_URL", "https://store-site-backend-static.ak.epicgames.com/freeGamesPromotions")
@@ -219,12 +217,6 @@ except ValueError:
 # Discord Webhook URL (loaded from .env)
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 
-# Path to store free games data
-DATA_FILE_PATH = "/mnt/data/free_games.json" # This path can be overridden by mounting a volume in Docker
-
-# Path to store the last sent notification batch (used by the resend endpoint)
-LAST_NOTIFICATION_FILE_PATH = "/mnt/data/last_notification.json"
-
 # Rotating file logging under LOGS_PATH (/mnt/logs), in addition to stdout.
 # Off by default: stdout is already structured JSON and collected by the
 # container's own log pipeline, so a second copy on disk goes unread.
@@ -237,17 +229,33 @@ HEALTHCHECK_URL = os.getenv("HEALTHCHECK_URL")
 # Enable or disable healthcheck based on environment variable
 ENABLE_HEALTHCHECK = os.getenv("ENABLE_HEALTHCHECK", "false").lower() == "true"
 
-# Database configuration
+# Database configuration.
+#
+# PostgreSQL is required -- this service no longer has a JSON-file storage
+# mode. Set DATABASE_URL to a standard Postgres connection string:
+#   postgresql://user:password@host:port/dbname
+# The bundled `postgres` service in compose.yaml provides one by default;
+# point DATABASE_URL at a different instance to use your own.
 _raw_db_connect_timeout = os.getenv("DB_CONNECT_TIMEOUT")
 DB_CONNECT_TIMEOUT = int(_raw_db_connect_timeout) if _raw_db_connect_timeout and _raw_db_connect_timeout.strip() else 10  # seconds; applies to all psycopg2.connect() calls
 _raw_db_health_check_timeout = os.getenv("DB_HEALTH_CHECK_TIMEOUT")
 DB_HEALTH_CHECK_TIMEOUT = int(_raw_db_health_check_timeout) if _raw_db_health_check_timeout and _raw_db_health_check_timeout.strip() else 5  # seconds; shorter timeout for the /health liveness check
-DB_HOST = os.getenv("DB_HOST") or None
-_raw_db_port = os.getenv("DB_PORT")
-DB_PORT = int(_raw_db_port) if _raw_db_port and _raw_db_port.strip() else 5432
-DB_NAME = os.getenv("DB_NAME") or None
-DB_USER = os.getenv("DB_USER") or None
-DB_PASSWORD = os.getenv("DB_PASSWORD") or None
+
+DATABASE_URL = os.getenv("DATABASE_URL") or None
+
+if DATABASE_URL:
+    _parsed_database_url = urlparse(DATABASE_URL)
+    DB_HOST = _parsed_database_url.hostname
+    DB_PORT = _parsed_database_url.port or 5432
+    DB_NAME = _parsed_database_url.path.lstrip("/") or None
+    DB_USER = _parsed_database_url.username
+    DB_PASSWORD = _parsed_database_url.password
+else:
+    DB_HOST = None
+    DB_PORT = 5432
+    DB_NAME = None
+    DB_USER = None
+    DB_PASSWORD = None
 
 # Timezone for date display in notifications.
 # REGION itself is an IANA timezone string, so it's used directly.

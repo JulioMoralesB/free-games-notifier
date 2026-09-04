@@ -17,7 +17,6 @@ from config import (
     SCHEDULE_TIME,
     TIMEZONE,
 )
-from modules.database import FreeGamesDatabase
 from modules.db_lifecycle import run_db_migrations, verify_required_tables
 from modules.dedupe import find_new_games, is_still_active
 from modules.healthcheck import healthcheck
@@ -164,14 +163,16 @@ def _start_api_server():
 
 
 def main():
-    if DB_HOST:
-        logger.info("Database configuration detected. Initializing database...")
-        db = FreeGamesDatabase()
-        db.init_db()
-        run_db_migrations()
-        verify_required_tables()
-    else:
-        logger.info("No database configuration detected. Using JSON file storage.")
+    if not DB_HOST:
+        logger.critical(
+            "DATABASE_URL is not set. PostgreSQL is required — see docs/self-hosting.md "
+            "for the bundled Postgres setup."
+        )
+        raise SystemExit(1)
+
+    logger.info("Initializing database...")
+    run_db_migrations()
+    verify_required_tables()
 
     # Start REST API server in a background thread
     api_thread = threading.Thread(target=_start_api_server, daemon=True)

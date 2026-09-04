@@ -58,10 +58,10 @@ COPY . .
 COPY --from=dashboard-builder /app/dashboard/dist ./dashboard/dist
 
 # Create writable directories for appuser and make healthcheck executable.
-# NOTE: /mnt/logs and /mnt/data are typically bind-mounted at runtime (see compose.yaml).
-# Ensure the host source directories are owned by the UID/GID of appuser in the container.
-RUN mkdir -p /mnt/logs /mnt/data /app/data \
-    && chown appuser:appuser /mnt/logs /mnt/data /app/data \
+# NOTE: /mnt/logs is bind-mounted at runtime only when LOG_TO_FILE=true (see compose.yaml).
+# Ensure the host source directory is owned by the UID/GID of appuser in the container.
+RUN mkdir -p /mnt/logs \
+    && chown appuser:appuser /mnt/logs \
     && chmod +x /app/healthcheck.sh
 
 # Switch to non-root user for all subsequent instructions and runtime

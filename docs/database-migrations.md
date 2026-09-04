@@ -1,6 +1,6 @@
 # Database Migrations
 
-Schema changes are managed by [Alembic](https://alembic.sqlalchemy.org/). Migration scripts live in `alembic/versions/` and are applied **automatically on startup** when `DB_HOST` is set.
+Schema changes are managed by [Alembic](https://alembic.sqlalchemy.org/). Migration scripts live in `alembic/versions/` and are applied **automatically on startup**.
 
 ## Current migrations
 
@@ -10,10 +10,14 @@ Schema changes are managed by [Alembic](https://alembic.sqlalchemy.org/). Migrat
 | `0002`   | Widens `games.game_id` from `VARCHAR(255)` to `TEXT` |
 | `0003`   | Converts `games.promotion_end_date` from `TIMESTAMP` to `TEXT` (ISO-8601 UTC) |
 | `0004`   | Adds `last_notification` table for Discord resend support |
+| `0005`   | Adds `games.review_score` |
+| `0006`   | Adds `games.store` and migrates `game_id` to the `<store>:<url>` prefixed format |
+| `0007`   | Adds `games.game_type` to distinguish standalone games from DLC |
+| `0008`   | Renames `review_score` to `review_scores` and migrates it to a JSON array (multiple review sources per game) |
 
 ## Running migrations manually
 
-Ensure your DB environment variables are set, then run:
+Ensure `DATABASE_URL` is set, then run:
 
 ```bash
 # Apply all pending migrations
@@ -26,8 +30,7 @@ alembic current
 alembic history --verbose
 
 # Verify a table exists
-PGPASSWORD="$DB_PASSWORD" psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
-  -c "SELECT to_regclass('free_games.last_notification');"
+psql "$DATABASE_URL" -c "SELECT to_regclass('free_games.last_notification');"
 
 # Roll back one revision
 alembic downgrade -1
@@ -38,8 +41,6 @@ Inside a Docker container:
 ```bash
 docker exec free-games-notifier alembic upgrade head
 ```
-
-> **Note for existing deployments:** Migration scripts use conditional SQL and are safe to run against databases created by the old `init_db()` logic — columns already at the correct type are left unchanged.
 
 ## Creating a new migration
 

@@ -6,7 +6,6 @@ import pytest
 API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
 API_KEY = os.getenv("API_KEY")
 HEADERS = {"X-API-Key": API_KEY} if API_KEY else {}
-DB_HOST = os.getenv("DB_HOST") or None
 
 @pytest.mark.production
 def test_health_check():
@@ -14,8 +13,7 @@ def test_health_check():
     assert response.status_code == 200
     assert response.json().get("status") == "healthy"
     assert response.json().get("epic_games_api") == "healthy"
-    if DB_HOST:
-        assert response.json().get("database") == "healthy"
+    assert response.json().get("database") == "healthy"
 
 @pytest.mark.production
 def test_games_latest():

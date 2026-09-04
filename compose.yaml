@@ -14,13 +14,18 @@ services:
     # No need to enumerate variables here — config.py handles all defaults.
     env_file:
       - .env
+    environment:
+      # Defaults to the bundled `postgres` service below. Set DATABASE_URL in
+      # .env instead to point at a different instance (a shared Postgres, a
+      # managed database, etc.) without touching this file.
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-freegames}:${POSTGRES_PASSWORD:-changeme}@postgres:5432/${POSTGRES_DB:-freegames}}
     ports:
       - "${API_PORT:-8000}:${API_PORT:-8000}"
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
     volumes:
-      - type: bind
-        source: ${DATA_PATH}
-        target: /mnt/data
       # Only written to when LOG_TO_FILE=true; harmless to leave unset otherwise.
       - type: bind
         source: ${LOGS_PATH:-./logs}
@@ -29,6 +34,33 @@ services:
       - "host.docker.internal:host-gateway"
     networks:
       - free-games-notifier-network
+
+  # Bundled PostgreSQL — the default storage backend for a fresh `docker compose up`,
+  # with no external database required. Point DATABASE_URL (above) at a different
+  # instance instead if you already run one; this service is then unused and can be
+  # removed or left idle.
+  postgres:
+    image: postgres:16-alpine
+    container_name: free-games-notifier-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-freegames}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: ${POSTGRES_DB:-freegames}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-freegames} -d ${POSTGRES_DB:-freegames}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - free-games-notifier-network
+
+volumes:
+  postgres-data:
+    # Named volume so database data survives container recreation
+    # (docker compose down/up), unlike an anonymous or bind-mounted path.
 
 networks:
   free-games-notifier-network:
