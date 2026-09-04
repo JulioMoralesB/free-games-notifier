@@ -14,8 +14,8 @@
 
 ### 3. Database connection errors
 - **Problem**: `psycopg2.OperationalError: could not connect to server`
-- **Solution**: Verify PostgreSQL credentials in `.env` or leave `DB_HOST` unset to use file storage
-- **Check**: `psql -h $DB_HOST -U $DB_USER -d $DB_NAME`
+- **Solution**: PostgreSQL is required. If you're using the bundled `postgres` service, check `docker compose ps` shows it healthy; if you set `DATABASE_URL` to point at your own instance, verify the connection string and credentials in `.env`
+- **Check**: `psql "$DATABASE_URL" -c "SELECT 1;"`
 
 ### 4. No logs appearing
 - **Problem**: `data/logs/notifier.log` doesn't exist

@@ -1,6 +1,6 @@
 # Free Games Notifier
 
-A Python-based scheduler that monitors the Epic Games Store and Steam for free game promotions and sends Discord notifications. Ships as a Docker image with optional PostgreSQL storage, a REST API, and a built-in web dashboard.
+A Python-based scheduler that monitors the Epic Games Store and Steam for free game promotions and sends Discord notifications. Ships as a Docker image with a bundled PostgreSQL database, a REST API, and a built-in web dashboard.
 
 ![Web Dashboard](https://github.com/user-attachments/assets/1ffef230-45e2-4ef1-9ffb-6a7a9d573d62)
 
@@ -11,7 +11,7 @@ A Python-based scheduler that monitors the Epic Games Store and Steam for free g
 - 📊 **Web dashboard** — browse, filter, and search the full free-games history at `/dashboard/`
 - 🔌 **REST API** — health, history, metrics, and notification management endpoints
 - 🌍 **Region-aware** — one `REGION` variable derives timezone, locale, Steam language, and country
-- 📦 **Pluggable storage** — PostgreSQL when `DB_HOST` is set, JSON file otherwise
+- 🐘 **Bundled PostgreSQL** — `docker compose up` gets you a working database with no separate setup; point `DATABASE_URL` elsewhere if you already run one
 - 🐳 **Docker-first** — pre-built multi-arch image on `ghcr.io`
 
 ## Quick Start
@@ -27,7 +27,7 @@ docker compose up -d
 
 Dashboard and API are available at `http://localhost:8000`.
 
-For a step-by-step walkthrough, optional PostgreSQL setup, version pinning, and update instructions, see the [Self-hosting Guide](docs/self-hosting.md).
+For a step-by-step walkthrough, pointing at your own PostgreSQL instance, version pinning, and update instructions, see the [Self-hosting Guide](docs/self-hosting.md).
 
 ## Documentation
 
@@ -36,7 +36,6 @@ For a step-by-step walkthrough, optional PostgreSQL setup, version pinning, and 
 | Self-hosting with Docker | [docs/self-hosting.md](docs/self-hosting.md) |
 | All environment variables | [docs/configuration.md](docs/configuration.md) |
 | REST API reference | [docs/api.md](docs/api.md) |
-| Storage backends (PostgreSQL vs JSON) | [docs/storage-backends.md](docs/storage-backends.md) |
 | Database migrations | [docs/database-migrations.md](docs/database-migrations.md) |
 | Local development from source | [docs/local-development.md](docs/local-development.md) |
 | Project architecture | [docs/architecture.md](docs/architecture.md) |

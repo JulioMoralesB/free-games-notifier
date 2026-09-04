@@ -69,6 +69,53 @@ class TestRunDbMigrations:
                 main.run_db_migrations()
 
 
+class TestRunDbMigrationsRetry:
+    """run_db_migrations() is the first DB connection at startup (init_db(), which
+    used to own this retry, was removed as redundant with Alembic's own DDL).
+    It must retry on connection-level failures instead of crashing the process."""
+
+    def test_retries_on_operational_error_and_succeeds(self, caplog):
+        from sqlalchemy.exc import OperationalError
+        main = _import_main()
+
+        with patch(
+            "modules.db_lifecycle.alembic_command.upgrade",
+            side_effect=[OperationalError("stmt", {}, Exception("could not translate host name\n")), None],
+        ) as mock_upgrade, patch("modules.retry.time.sleep") as mock_sleep, caplog.at_level("WARNING"):
+            main.run_db_migrations()
+
+        assert mock_upgrade.call_count == 2
+        mock_sleep.assert_called_once_with(1)
+        assert "ERROR" not in [r.levelname for r in caplog.records]
+        assert any(r.levelname == "WARNING" for r in caplog.records)
+
+    def test_raises_and_logs_exactly_one_error_after_retries_exhausted(self, caplog):
+        from sqlalchemy.exc import OperationalError
+        main = _import_main()
+
+        with patch(
+            "modules.db_lifecycle.alembic_command.upgrade",
+            side_effect=OperationalError("stmt", {}, Exception("could not translate host name\n")),
+        ), patch("modules.retry.time.sleep"), caplog.at_level("WARNING"):
+            with pytest.raises(OperationalError):
+                main.run_db_migrations()
+
+        error_records = [r for r in caplog.records if r.levelname == "ERROR"]
+        assert len(error_records) == 1
+
+    def test_does_not_retry_non_operational_errors(self):
+        main = _import_main()
+
+        with patch(
+            "modules.db_lifecycle.alembic_command.upgrade",
+            side_effect=RuntimeError("bad migration"),
+        ), patch("modules.retry.time.sleep") as mock_sleep:
+            with pytest.raises(RuntimeError):
+                main.run_db_migrations()
+
+        mock_sleep.assert_not_called()
+
+
 class TestVerifyRequiredTables:
     """Tests for main.verify_required_tables()."""
 
@@ -103,15 +150,15 @@ class TestVerifyRequiredTables:
 
 
 class TestMainDbBranch:
-    """Tests for the DB-enabled branch of main()."""
+    """Tests for main()'s mandatory-database startup: PostgreSQL is the only
+    storage backend, so a missing DATABASE_URL/DB_HOST must fail fast rather
+    than silently falling back to anything."""
 
     def test_runs_migrations_when_db_host_is_set(self):
-        """main() should call _run_db_migrations when DB_HOST is configured."""
+        """main() should run migrations and verify tables when DB_HOST is configured."""
         main = _import_main()
 
-        mock_db = MagicMock()
         with patch("main.DB_HOST", "localhost"), \
-             patch("main.FreeGamesDatabase", return_value=mock_db), \
              patch("main.run_db_migrations") as mock_migrate, \
              patch("main.verify_required_tables") as mock_verify_tables, \
              patch("main._start_api_server"), \
@@ -124,31 +171,23 @@ class TestMainDbBranch:
             except KeyboardInterrupt:
                 pass
 
-        mock_db.init_db.assert_called_once()
         mock_migrate.assert_called_once()
         mock_verify_tables.assert_called_once()
 
-    def test_does_not_run_migrations_when_db_host_is_not_set(self):
-        """main() should skip DB init and migrations when DB_HOST is not set."""
+    def test_exits_when_db_host_is_not_set(self):
+        """main() should exit immediately, before starting anything else, when DB_HOST is unset."""
         main = _import_main()
 
         with patch("main.DB_HOST", None), \
              patch("main.run_db_migrations") as mock_migrate, \
              patch("main.verify_required_tables") as mock_verify_tables, \
-             patch("main.FreeGamesDatabase") as mock_db_cls, \
-             patch("main._start_api_server"), \
-             patch("main.check_games"), \
-             patch("main.healthcheck"), \
-             patch("main.schedule"), \
-             patch("main.time.sleep", side_effect=KeyboardInterrupt):
-            try:
+             patch("main._start_api_server") as mock_start_api:
+            with pytest.raises(SystemExit):
                 main.main()
-            except KeyboardInterrupt:
-                pass
 
-        mock_db_cls.assert_not_called()
         mock_migrate.assert_not_called()
         mock_verify_tables.assert_not_called()
+        mock_start_api.assert_not_called()
 
 
 class TestScheduling:
@@ -157,7 +196,9 @@ class TestScheduling:
     def _run_main_with_patches(self, main, extra_patches):
         """Run main.main() with common patches applied, stopping after one scheduler tick."""
         base = {
-            "main.DB_HOST": None,
+            "main.DB_HOST": "localhost",
+            "main.run_db_migrations": MagicMock(),
+            "main.verify_required_tables": MagicMock(),
             "main._start_api_server": MagicMock(),
             "main.check_games": MagicMock(),
             "main.healthcheck": MagicMock(),

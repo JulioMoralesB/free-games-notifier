@@ -26,8 +26,8 @@ jobs:
 
       - name: Create required directories and Docker network
         run: |
-          mkdir -p /tmp/free-games-test-data /tmp/free-games-test-logs
-          sudo chown -R 1000:1000 /tmp/free-games-test-data /tmp/free-games-test-logs
+          mkdir -p /tmp/free-games-test-logs
+          sudo chown -R 1000:1000 /tmp/free-games-test-logs
           docker network create apollo-server-network || true
 
       - name: Start Docker container

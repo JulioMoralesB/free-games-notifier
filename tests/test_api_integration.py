@@ -80,9 +80,7 @@ class TestHealthEndpoint:
         assert "epic_games_api" in resp_json, "Expected 'epic_games_api' field in health response"
         assert isinstance(resp_json["epic_games_api"], str), \
             f"Expected epic_games_api to be a string but got {type(resp_json['epic_games_api'])!r}"
-        db_host = os.getenv("DB_HOST")
-        if db_host:
-            assert resp_json["database"] == "healthy", f"Expected database 'healthy' but got '{resp_json['database']}'"
+        assert resp_json["database"] == "healthy", f"Expected database 'healthy' but got '{resp_json['database']}'"
 
 
 @pytest.mark.integration

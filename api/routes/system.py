@@ -9,7 +9,6 @@ from api import metrics
 from api.auth import verify_api_key
 from api.schemas import ConfigResponse, ErrorResponse, HealthResponse, MetricsResponse
 from config import (
-    DATA_FILE_PATH,
     DATE_FORMAT,
     DB_HEALTH_CHECK_TIMEOUT,
     DB_HOST,
@@ -34,7 +33,7 @@ router = APIRouter()
 @router.get("/health", response_model=HealthResponse)
 def health():
     """Active health check: Epic Games API reachability and database connectivity."""
-    result = {"epic_games_api": "unknown", "database": "not_configured"}
+    result = {"epic_games_api": "unknown", "database": "unknown"}
 
     # Check Epic Games API
     try:
@@ -43,29 +42,29 @@ def health():
     except Exception:
         result["epic_games_api"] = "unhealthy"
 
-    # Check database if configured
-    if DB_HOST:
-        try:
-            import psycopg2
-            conn = psycopg2.connect(
-                host=DB_HOST,
-                port=DB_PORT,
-                dbname=DB_NAME,
-                user=DB_USER,
-                password=DB_PASSWORD,
-                connect_timeout=DB_HEALTH_CHECK_TIMEOUT,
-            )
-            conn.close()
-            result["database"] = "healthy"
-        except Exception:
-            result["database"] = "unhealthy"
+    # PostgreSQL is a hard requirement, so this always runs (an unset DB_HOST
+    # here means misconfiguration, and the connection attempt below reports
+    # that honestly as "unhealthy" rather than a separate "not_configured" state).
+    try:
+        import psycopg2
+        conn = psycopg2.connect(
+            host=DB_HOST,
+            port=DB_PORT,
+            dbname=DB_NAME,
+            user=DB_USER,
+            password=DB_PASSWORD,
+            connect_timeout=DB_HEALTH_CHECK_TIMEOUT,
+        )
+        conn.close()
+        result["database"] = "healthy"
+    except Exception:
+        result["database"] = "unhealthy"
 
-    overall = "healthy"
-    if result["epic_games_api"] != "healthy":
-        overall = "unhealthy"
-    if DB_HOST and result["database"] != "healthy":
-        overall = "unhealthy"
-    result["status"] = overall
+    result["status"] = (
+        "healthy"
+        if result["epic_games_api"] == "healthy" and result["database"] == "healthy"
+        else "unhealthy"
+    )
     return result
 
 
@@ -93,7 +92,6 @@ def config_endpoint():
     return {
         "epic_games_api_url": EPIC_GAMES_API_URL,
         "epic_games_region": EPIC_GAMES_REGION,
-        "data_file_path": DATA_FILE_PATH,
         "enable_healthcheck": ENABLE_HEALTHCHECK,
         "healthcheck_configured": bool(HEALTHCHECK_URL),
         "healthcheck_interval_minutes": HEALTHCHECK_INTERVAL,

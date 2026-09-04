@@ -7,7 +7,7 @@ The easiest way to run Free Games Notifier on your own server is with the pre-bu
 - Docker 20.10+
 - Docker Compose v2 (`docker compose`) — Compose v1 (`docker-compose`) also works
 - A Discord webhook URL — create one via **Server Settings → Integrations → Webhooks** in your Discord server
-- (Optional) PostgreSQL 13+ for database-backed storage; the service falls back to JSON file storage when no DB is configured
+- Nothing else — `docker compose up` brings up a bundled PostgreSQL alongside the service. (Optional) point `DATABASE_URL` at an existing PostgreSQL 13+ instance instead, if you already run one.
 
 ## Quick Start
 
@@ -30,13 +30,11 @@ Open `.env` and set at minimum:
 DISCORD_WEBHOOK_URL=https://discord.com/api/webhooks/YOUR_WEBHOOK_ID/YOUR_TOKEN
 ```
 
-The file already includes a sensible default for `DATA_PATH` (`./data`), which Docker bind-mounts for persistent storage. Change it to an absolute path if you prefer a specific location.
-
 Logs go to stdout by default — `docker logs free-games-notifier`, or your own log pipeline if the host collects container stdout. That's enough for most setups, and `LOGS_PATH` (`./logs`) doesn't need to be touched. If you're not running any log collection and want a plain file to `tail` instead, set `LOG_TO_FILE=true`; only then does the `LOGS_PATH` bind mount start being written to. See [Configuration Reference → Logging](configuration.md#logging) for details.
 
 Optionally set `REGION` to your IANA timezone string (e.g. `America/Mexico_City`) — this derives timezone, locale, Steam language, and country in one step. See the [Configuration Reference](configuration.md) for all options.
 
-To enable PostgreSQL, uncomment and fill in the `DB_*` variables; otherwise JSON file storage is used automatically. See [Storage Backends](storage-backends.md) for a comparison.
+Nothing to configure for the database: `docker compose up` brings up a bundled PostgreSQL alongside the service, with data persisted in a named Docker volume. If you'd rather use a PostgreSQL instance you already run, set `DATABASE_URL` in `.env` — see [Configuration Reference → Database](configuration.md#database).
 
 ### 3. Start the service
 
@@ -45,7 +43,7 @@ docker compose pull   # pull the pre-built image from ghcr.io
 docker compose up -d
 ```
 
-Docker Compose creates the `data/` and `logs/` directories and the internal network on first run. The service applies any pending database migrations and begins the scheduling loop.
+Docker Compose creates the bundled Postgres service, its data volume, the `logs/` directory (only used when `LOG_TO_FILE=true`), and the internal network on first run. The service waits for Postgres to report healthy, applies any pending database migrations, and begins the scheduling loop.
 
 The dashboard and REST API are available at `http://localhost:8000`.
 
@@ -53,7 +51,7 @@ The dashboard and REST API are available at `http://localhost:8000`.
 
 ## Database migrations
 
-When `DB_HOST` is configured, Alembic migrations run **automatically on startup** — no manual step is needed. Migration log lines on first boot are expected. For manual migration commands, see [Database Migrations](database-migrations.md).
+Alembic migrations run **automatically on startup** — no manual step is needed. Migration log lines on first boot are expected. For manual migration commands, see [Database Migrations](database-migrations.md).
 
 ## Pinning to a specific version
 
@@ -77,12 +75,14 @@ This pulls the latest image and restarts the service. Any new migrations run aut
 
 ## Using only Docker (no Compose)
 
+Without Compose there's no bundled Postgres, so point `DATABASE_URL` at an instance you run yourself:
+
 ```bash
 docker run -d \
   --name free-games-notifier \
   -e DISCORD_WEBHOOK_URL="YOUR_WEBHOOK_URL" \
   -e REGION=America/New_York \
-  -v /your/data/path:/mnt/data \
+  -e DATABASE_URL="postgresql://user:password@host:5432/dbname" \
   -v /your/logs/path:/mnt/logs \
   -p 8000:8000 \
   ghcr.io/juliomoralesb/free-games-notifier:latest

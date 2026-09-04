@@ -37,7 +37,7 @@ A high-level overview of how the project is structured and how data flows throug
 ├── modules/
 │   ├── models.py                 # FreeGame dataclass shared across modules
 │   ├── notifier.py               # Discord webhook sender + embed builder
-│   ├── storage.py                # Storage dispatcher (PostgreSQL or JSON file)
+│   ├── storage.py                # Thin, stable seam in front of database.py
 │   ├── database.py               # PostgreSQL operations
 │   ├── dedupe.py                 # New-game detection + grace-period guards
 │   ├── db_lifecycle.py           # Alembic migrations + post-migration sanity check
@@ -100,9 +100,9 @@ The REST API runs on a daemon thread alongside the scheduler, exposing the same 
 
 Every scraper returns `list[FreeGame]` from `modules/models.py`. Adding a new store means implementing `Scraper.fetch_free_games() -> list[FreeGame]` — the rest of the pipeline is store-agnostic.
 
-### Pluggable storage
+### Storage
 
-`modules/storage.py` is a dispatcher: it picks PostgreSQL when `DB_HOST` is set, JSON file otherwise. Both backends implement the same `load_previous_games`, `save_games`, `load_last_notification`, `save_last_notification` interface, so the rest of the codebase doesn't care which is in use.
+PostgreSQL is the only storage backend — a `docker compose up` bundles it, so no self-hoster needs to configure one separately. `modules/storage.py` is a thin, stable seam in front of `modules/database.py` (`load_previous_games`, `save_games`, `load_last_notification`, `save_last_notification`), so the rest of the codebase (`main.py`, the REST API) doesn't reach into `FreeGamesDatabase` directly.
 
 ### Deduplication strategy
 
