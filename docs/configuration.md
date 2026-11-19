@@ -70,6 +70,16 @@ See the [API Reference](api.md) for endpoint documentation.
 | `API_KEY` | _(empty)_ | Secret key for protecting mutating API endpoints and `GET /config`. Leave empty to disable auth. |
 | `DASHBOARD_API_KEY` | _(empty)_ | Shared secret for `GET /api/summary`, the external contract endpoint other services poll (see [API Reference → Dashboard summary contract](api.md#dashboard-summary-contract)). Unlike `API_KEY`, there is no "leave empty to disable auth" — the endpoint rejects every request until this is set. |
 
+## Summary mirror (optional)
+
+Pushes the `/api/summary` snapshot to an always-on mirror after every completed check, so pollers keep working while this host is off. See the [Summary Mirror guide](summary-mirror.md). Disabled unless both URL and token are set.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SUMMARY_MIRROR_URL` | _(empty)_ | Full URL of the mirror's ingest endpoint, e.g. `https://free-games.example.com/api/summary/snapshot`. |
+| `SUMMARY_MIRROR_TOKEN` | _(empty)_ | Bearer token for the ingest endpoint — must equal the Worker's `INGEST_TOKEN` secret. Generate with `openssl rand -hex 32`. |
+| `SUMMARY_MIRROR_TIMEOUT` | `5` | Seconds before the push gives up. One attempt, no retries — a failed push is logged as a warning and never affects the check. |
+
 ## Notifications
 
 | Variable | Default | Description |

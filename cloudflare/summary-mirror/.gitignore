@@ -1,0 +1,5 @@
+node_modules/
+.wrangler/
+.dev.vars
+# Your deployment config (database_id, routes) — copy from wrangler.example.jsonc.
+wrangler.jsonc

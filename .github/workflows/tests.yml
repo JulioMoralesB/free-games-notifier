@@ -82,3 +82,34 @@ jobs:
 
       - name: Run tests (vitest)
         run: npm test
+
+  # ─── Summary mirror (Cloudflare Worker): type-check + tests ──────────────────
+  summary-mirror:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    defaults:
+      run:
+        working-directory: cloudflare/summary-mirror
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Node 22: tests run the real D1 SQL against the built-in node:sqlite.
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: cloudflare/summary-mirror/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run typecheck
+
+      - name: Run tests (vitest)
+        run: npm test

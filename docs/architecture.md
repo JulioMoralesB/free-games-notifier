@@ -28,6 +28,8 @@ A high-level overview of how the project is structured and how data flows throug
 ├── Dockerfile                    # Multi-stage image (Node builder → Python runtime)
 ├── ruff.toml                     # Linter configuration
 │
+├── cloudflare/summary-mirror/    # Optional always-on /api/summary Worker + D1 (docs/summary-mirror.md)
+│
 ├── dashboard/                    # React + TypeScript SPA (Vite)
 │   └── src/
 │       ├── App.tsx               # Top-level state, filters, fetch loop
@@ -45,6 +47,7 @@ A high-level overview of how the project is structured and how data flows throug
 │   ├── retry.py                  # Generic exponential-backoff helper
 │   ├── logging_config.py         # JSON structured logging setup
 │   ├── scheduler_state.py        # In-memory "last check completed" timestamp, read by /api/summary
+│   ├── summary.py                # /api/summary body builder + fire-and-forget push to the mirror
 │   └── scrapers/
 │       ├── base.py               # Scraper interface
 │       ├── epic.py               # Epic Games Store scraper
