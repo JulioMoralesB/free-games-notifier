@@ -325,25 +325,24 @@ API_KEY = os.getenv("API_KEY")  # Secret key for mutating API endpoints; leave e
 # not for convenient local development.
 DASHBOARD_API_KEY = os.getenv("DASHBOARD_API_KEY")
 
-# Optional summary mirror (see docs/summary-mirror.md): after each completed
-# check, push the /api/summary snapshot to an always-on endpoint (e.g. a
-# Cloudflare Worker) so the summary stays available while this host is off.
-# Disabled unless both URL and token are set. The push is fire-and-forget.
-SUMMARY_MIRROR_URL = os.getenv("SUMMARY_MIRROR_URL") or None
-SUMMARY_MIRROR_TOKEN = os.getenv("SUMMARY_MIRROR_TOKEN") or None
-_raw_summary_mirror_timeout = os.getenv("SUMMARY_MIRROR_TIMEOUT")
+# Optional Cloudflare mirror (see docs/cloudflare-mirror.md): after each
+# completed check, push the /api/summary snapshot and the game history to an
+# always-on read-only replica, so the dashboard and /api/summary stay
+# available while this host is off. MIRROR_URL is the replica's base URL
+# (e.g. https://free-games.example.com). Disabled unless both URL and token
+# are set. The push is fire-and-forget.
+MIRROR_URL = (os.getenv("MIRROR_URL") or "").rstrip("/") or None
+MIRROR_TOKEN = os.getenv("MIRROR_TOKEN") or None
+_raw_mirror_timeout = os.getenv("MIRROR_TIMEOUT")
 try:
-    SUMMARY_MIRROR_TIMEOUT = (
-        float(_raw_summary_mirror_timeout) if _raw_summary_mirror_timeout else 5.0
-    )
-    if SUMMARY_MIRROR_TIMEOUT <= 0:
+    MIRROR_TIMEOUT = float(_raw_mirror_timeout) if _raw_mirror_timeout else 5.0
+    if MIRROR_TIMEOUT <= 0:
         raise ValueError
 except ValueError:
     logging.getLogger(__name__).warning(
-        "Invalid SUMMARY_MIRROR_TIMEOUT value %r; defaulting to 5 seconds.",
-        _raw_summary_mirror_timeout,
+        "Invalid MIRROR_TIMEOUT value %r; defaulting to 5 seconds.", _raw_mirror_timeout
     )
-    SUMMARY_MIRROR_TIMEOUT = 5.0
+    MIRROR_TIMEOUT = 5.0
 
 API_HOST = os.getenv("API_HOST", "0.0.0.0")
 _raw_api_port = os.getenv("API_PORT")

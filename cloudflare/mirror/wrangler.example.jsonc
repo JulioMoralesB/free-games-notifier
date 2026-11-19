@@ -1,0 +1,47 @@
+// Copy to wrangler.jsonc (gitignored) and fill in the REPLACE_ME values.
+// Setup walkthrough: docs/cloudflare-mirror.md. Secrets are NOT set here — use
+// `wrangler secret put` (DASHBOARD_API_KEY, INGEST_TOKEN, DISCORD_WEBHOOK_URL).
+{
+  "name": "free-games-mirror",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+
+  // Builds the dashboard (../../dashboard) into ./public/dashboard on every
+  // `wrangler deploy`, so the mirror always ships the current dashboard.
+  "build": { "command": "npm run build:dashboard" },
+
+  // The dashboard is served as static assets: free, and never runs the Worker.
+  "assets": { "directory": "./public" },
+
+  // Serve the mirror on the hostname the notifier already uses. Only these
+  // paths go to Cloudflare; everything else (/check, /health, …) keeps
+  // reaching your server through its tunnel / reverse proxy. The hostname
+  // must be proxied by Cloudflare (orange cloud). No zone of your own?
+  // Remove "routes" and set "workers_dev": true to use *.workers.dev instead.
+  "workers_dev": false,
+  "routes": [
+    { "pattern": "REPLACE_ME_HOSTNAME/dashboard*", "zone_name": "REPLACE_ME_ZONE" },
+    { "pattern": "REPLACE_ME_HOSTNAME/games/history*", "zone_name": "REPLACE_ME_ZONE" },
+    { "pattern": "REPLACE_ME_HOSTNAME/api/summary*", "zone_name": "REPLACE_ME_ZONE" },
+    { "pattern": "REPLACE_ME_HOSTNAME/api/mirror/*", "zone_name": "REPLACE_ME_ZONE" }
+  ],
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "free-games-mirror",
+      "database_id": "REPLACE_ME_DATABASE_ID", // printed by `wrangler d1 create free-games-mirror`
+      "migrations_dir": "migrations"
+    }
+  ],
+
+  // Freshness alert: one Cron Trigger (counts 1 against the account's 5 on the
+  // Free plan), firing hourly. It alerts at most once per stale episode.
+  "triggers": { "crons": ["0 * * * *"] },
+
+  "vars": {
+    "STALE_AFTER_HOURS": "26"
+  },
+
+  "observability": { "enabled": true }
+}

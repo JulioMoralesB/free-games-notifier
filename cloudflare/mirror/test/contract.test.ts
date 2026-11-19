@@ -17,9 +17,15 @@ describe("parseTimestamp", () => {
     expect(parseTimestamp("2026-09-10T16:00:00+00:00")).toBe(Date.UTC(2026, 8, 10, 16));
     expect(parseTimestamp("2026-09-10T10:00:00-06:00")).toBe(Date.UTC(2026, 8, 10, 16));
   });
-  it("returns NaN for empty or garbage input", () => {
+  it("reads a date-only value as midnight UTC, and accepts a space separator", () => {
+    expect(parseTimestamp("2026-09-10")).toBe(Date.UTC(2026, 8, 10));
+    expect(parseTimestamp("2026-09-10 16:00:00")).toBe(Date.UTC(2026, 8, 10, 16));
+  });
+  it("returns NaN for empty, garbage, or non-ISO input that Date.parse would accept", () => {
     expect(parseTimestamp("")).toBeNaN();
     expect(parseTimestamp("not a date")).toBeNaN();
+    expect(parseTimestamp("March 7, 2026")).toBeNaN();
+    expect(parseTimestamp("2026/09/10")).toBeNaN();
   });
 });
 

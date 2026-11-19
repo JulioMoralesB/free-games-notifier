@@ -1,5 +1,6 @@
-// Always-on mirror of free-games-notifier's GET /api/summary.
-// See docs/summary-mirror.md for the architecture and setup.
+// Always-on, read-only mirror of free-games-notifier: the dashboard
+// (static assets), GET /games/history and GET /api/summary, fed by pushes
+// from the notifier. See docs/cloudflare-mirror.md.
 import { checkFreshness, handleRequest, type Env } from "./handlers";
 import { D1Store } from "./store";
 

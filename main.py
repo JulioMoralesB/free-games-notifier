@@ -21,11 +21,11 @@ from modules.db_lifecycle import run_db_migrations, verify_required_tables
 from modules.dedupe import find_new_games, is_still_active
 from modules.healthcheck import healthcheck
 from modules.logging_config import setup_logging
+from modules.mirror import push_to_mirror
 from modules.notifier import send_discord_message
 from modules.scheduler_state import record_check_completed
 from modules.scrapers import get_enabled_scrapers
 from modules.storage import load_previous_games, save_games, save_last_notification
-from modules.summary import push_summary_snapshot
 
 setup_logging(timezone=TIMEZONE, log_file=LOG_FILE_PATH, log_to_file=LOG_TO_FILE)
 
@@ -148,9 +148,9 @@ def check_games():
     # not on the early returns above. Read by the dashboard summary endpoint.
     record_check_completed()
 
-    # Mirror the fresh summary to its always-on copy, if configured.
-    # Fire-and-forget: push_summary_snapshot() never raises.
-    push_summary_snapshot()
+    # Refresh the always-on Cloudflare mirror (summary + dashboard history), if
+    # configured. Fire-and-forget: push_to_mirror() never raises.
+    push_to_mirror()
 
 
 def _start_api_server():

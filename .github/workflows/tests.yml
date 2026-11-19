@@ -19,10 +19,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.9
+      # Match the production image (Dockerfile: python:3.12-slim).
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.12"
 
       - name: Cache pip dependencies
         uses: actions/cache@v4
@@ -83,15 +84,15 @@ jobs:
       - name: Run tests (vitest)
         run: npm test
 
-  # ─── Summary mirror (Cloudflare Worker): type-check + tests ──────────────────
-  summary-mirror:
+  # ─── Cloudflare mirror (Worker): type-check + tests ──────────────────────────
+  cloudflare-mirror:
     runs-on: ubuntu-latest
     permissions:
       contents: read
 
     defaults:
       run:
-        working-directory: cloudflare/summary-mirror
+        working-directory: cloudflare/mirror
 
     steps:
       - name: Checkout code
@@ -103,7 +104,7 @@ jobs:
         with:
           node-version: "22"
           cache: "npm"
-          cache-dependency-path: cloudflare/summary-mirror/package-lock.json
+          cache-dependency-path: cloudflare/mirror/package-lock.json
 
       - name: Install dependencies
         run: npm ci

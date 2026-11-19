@@ -42,7 +42,7 @@ def summary():
         logger.error("Failed to load games for summary: %s", e)
         raise HTTPException(status_code=503, detail="Storage backend unavailable")
 
-    # Same body the summary mirror receives (modules/summary.py), so the
+    # Same body the Cloudflare mirror receives (modules/mirror.py), so the
     # local endpoint and the always-on mirror can't drift apart.
     return {
         "service": SERVICE_NAME,

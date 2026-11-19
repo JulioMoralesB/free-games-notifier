@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { MAX_BODY_BYTES } from "../src/contract";
+import { MAX_SUMMARY_BYTES } from "../src/contract";
 import { checkFreshness, handleRequest, type Deps, type Env } from "../src/handlers";
 import { D1Store, type Store } from "../src/store";
 import { createTestD1 } from "./sqlite-d1";
@@ -53,7 +53,7 @@ function push(body: unknown, token: string | null = INGEST_TOKEN): Promise<Respo
   if (token !== null) headers.authorization = `Bearer ${token}`;
   const payload = typeof body === "string" ? body : JSON.stringify(body);
   return handleRequest(
-    new Request("https://mirror.test/api/summary/snapshot", { method: "POST", headers, body: payload }),
+    new Request("https://mirror.test/api/mirror/summary", { method: "POST", headers, body: payload }),
     deps(),
   );
 }
@@ -109,6 +109,8 @@ describe("GET /api/summary", () => {
       get: () => Promise.reject(new Error("D1 down")),
       saveSnapshot: () => Promise.resolve(),
       markStaleAlertSent: () => Promise.resolve(),
+      syncGames: () => Promise.resolve(),
+      history: () => Promise.resolve({ games: [], total: 0 }),
     };
     const response = await handleRequest(
       new Request("https://mirror.test/api/summary", { headers: { "X-API-Key": DASHBOARD_KEY } }),
@@ -127,7 +129,7 @@ describe("GET /api/summary", () => {
   });
 });
 
-describe("POST /api/summary/snapshot", () => {
+describe("POST /api/mirror/summary", () => {
   it.each([
     ["no bearer token", null],
     ["a wrong token", "nope"],
@@ -149,7 +151,7 @@ describe("POST /api/summary/snapshot", () => {
   });
 
   it("rejects oversized bodies with 413", async () => {
-    const huge = { ...snapshot, padding: "x".repeat(MAX_BODY_BYTES) };
+    const huge = { ...snapshot, padding: "x".repeat(MAX_SUMMARY_BYTES) };
     expect((await push(huge)).status).toBe(413);
   });
 
@@ -164,8 +166,9 @@ describe("POST /api/summary/snapshot", () => {
   });
 });
 
-it("returns 404 for any other path", async () => {
-  expect((await handleRequest(new Request("https://mirror.test/dashboard/"), deps())).status).toBe(404);
+it("returns 404 for any other path (the dashboard is static assets, served before the Worker)", async () => {
+  expect((await handleRequest(new Request("https://mirror.test/dashboard/missing.js"), deps())).status).toBe(404);
+  expect((await handleRequest(new Request("https://mirror.test/check", { method: "POST" }), deps())).status).toBe(404);
 });
 
 describe("freshness check (Cron Trigger)", () => {

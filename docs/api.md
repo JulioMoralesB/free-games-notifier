@@ -99,6 +99,6 @@ curl -H "X-API-Key: $DASHBOARD_API_KEY" http://localhost:8000/api/summary
 | `active_promotions[].end_date` | string | ISO-8601 timestamp when the free promotion ends |
 | `last_check_at` | string \| null | ISO-8601 UTC timestamp of the last scheduled check that ran to completion; `null` until the first one finishes after startup |
 
-**Always-on mirror (optional).** If the host isn't on 24/7, the [summary mirror](summary-mirror.md) serves this same contract — same path, same `X-API-Key`, same fields — from a Cloudflare Worker, re-filtering expired promotions on every request. Responses from the mirror carry an `x-summary-source: cloudflare-mirror` header.
+**Always-on mirror (optional).** If the host isn't on 24/7, the [Cloudflare mirror](cloudflare-mirror.md) serves this same contract — same path, same `X-API-Key`, same fields — from a Cloudflare Worker, re-filtering expired promotions on every request. It also serves the dashboard and `GET /games/history`. Responses from the mirror carry an `x-served-by: free-games-mirror` header.
 
 Read-only and side-effect-free — a plain `GET` over already-loaded state, safe to poll frequently. If the storage backend can't be read, the endpoint returns `503` rather than a misleading empty list; a poller should treat that the same as any other network failure, not as "nothing is free right now".
