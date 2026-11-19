@@ -19,10 +19,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.9
+      # Match the production image (Dockerfile: python:3.12-slim).
+      - name: Set up Python 3.12
         uses: actions/setup-python@v5
         with:
-          python-version: "3.9"
+          python-version: "3.12"
 
       - name: Cache pip dependencies
         uses: actions/cache@v4
@@ -79,6 +80,37 @@ jobs:
 
       - name: Build (tsc + vite)
         run: npm run build
+
+      - name: Run tests (vitest)
+        run: npm test
+
+  # ─── Cloudflare mirror (Worker): type-check + tests ──────────────────────────
+  cloudflare-mirror:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    defaults:
+      run:
+        working-directory: cloudflare/mirror
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Node 22: tests run the real D1 SQL against the built-in node:sqlite.
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: cloudflare/mirror/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run typecheck
 
       - name: Run tests (vitest)
         run: npm test

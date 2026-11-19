@@ -7,20 +7,17 @@ Never remove or repurpose a field in SummaryResponse; add a new path instead.
 """
 
 import logging
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Security
 
 from api.auth import verify_dashboard_key
 from api.schemas import ErrorResponse, SummaryResponse
-from modules.dedupe import is_still_active
 from modules.scheduler_state import get_last_check_completed_at
 from modules.storage import load_previous_games
+from modules.summary import SERVICE_NAME, build_active_promotions, format_last_check_at
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-
-SERVICE_NAME = "free-games-notifier"
 
 
 @router.get(
@@ -45,22 +42,10 @@ def summary():
         logger.error("Failed to load games for summary: %s", e)
         raise HTTPException(status_code=503, detail="Storage backend unavailable")
 
-    # Games with no known end_date are excluded: this contract promises "when
-    # it ends", and a poller can't act on a deadline we don't have.
-    active = [g for g in games if is_still_active(g) and g.end_date]
-    active.sort(key=lambda g: g.end_date)  # Soonest-ending first.
-
-    last_check = get_last_check_completed_at()
-
+    # Same body the Cloudflare mirror receives (modules/mirror.py), so the
+    # local endpoint and the always-on mirror can't drift apart.
     return {
         "service": SERVICE_NAME,
-        "active_promotions": [
-            {"title": g.title, "link": g.url, "store": g.store, "end_date": g.end_date}
-            for g in active
-        ],
-        "last_check_at": (
-            datetime.fromtimestamp(last_check, tz=timezone.utc).isoformat()
-            if last_check is not None
-            else None
-        ),
+        "active_promotions": build_active_promotions(games),
+        "last_check_at": format_last_check_at(get_last_check_completed_at()),
     }

@@ -36,6 +36,7 @@ For a step-by-step walkthrough, pointing at your own PostgreSQL instance, versio
 | Self-hosting with Docker | [docs/self-hosting.md](docs/self-hosting.md) |
 | All environment variables | [docs/configuration.md](docs/configuration.md) |
 | REST API reference | [docs/api.md](docs/api.md) |
+| Always-on dashboard & `/api/summary` (Cloudflare) | [docs/cloudflare-mirror.md](docs/cloudflare-mirror.md) |
 | Database migrations | [docs/database-migrations.md](docs/database-migrations.md) |
 | Local development from source | [docs/local-development.md](docs/local-development.md) |
 | Project architecture | [docs/architecture.md](docs/architecture.md) |
@@ -54,7 +55,7 @@ curl -H "X-API-Key: $DASHBOARD_API_KEY" http://localhost:8000/api/summary
 {
   "service": "free-games-notifier",
   "active_promotions": [
-    { "title": "Celeste", "store": "epic", "end_date": "2026-09-10T16:00:00.000Z" }
+    { "title": "Celeste", "link": "https://store.epicgames.com/p/celeste", "store": "epic", "end_date": "2026-09-10T16:00:00.000Z" }
   ],
   "last_check_at": "2026-09-03T12:00:00+00:00"
 }
@@ -63,8 +64,9 @@ curl -H "X-API-Key: $DASHBOARD_API_KEY" http://localhost:8000/api/summary
 - **Auth is mandatory** — set `DASHBOARD_API_KEY` (a secret shared only with the poller; separate from `API_KEY`) and send it as `X-API-Key`. Unlike the rest of the API, there is no "leave empty to disable auth" fallback: an unset key rejects every request.
 - **Fails loud, never fakes it** — if storage can't be read, the endpoint returns `503` rather than a misleading empty list.
 - **No writes, cheap to poll** — a plain `GET` that reads already-loaded state.
-- `active_promotions` lists currently-free games, soonest-ending first.
+- `active_promotions` lists currently-free games with a known end date, soonest-ending first.
 - `last_check_at` is `null` until the first scheduled check completes after startup.
+- **Host not always on?** An optional [Cloudflare mirror](docs/cloudflare-mirror.md) (Worker + D1, free plan) keeps serving this same contract — and the dashboard — 24/7, and alerts Discord when checks stop arriving.
 
 See [docs/configuration.md](docs/configuration.md) for `DASHBOARD_API_KEY` details.
 

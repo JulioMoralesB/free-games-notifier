@@ -36,6 +36,10 @@ npm run test:watch # interactive watch mode for development
 
 Current coverage focuses on `GameCard` (countdown logic, expired styling, review-chip filtering, locale switching) and `translations.ts` (key parity across locales). When adding a new component, prefer behavior-driven tests using `screen.getByText` / `getByRole` over snapshot tests.
 
+## Two backends
+
+The dashboard can be served by the Python API **or** by the always-on [Cloudflare mirror](cloudflare-mirror.md), which only implements the one endpoint the dashboard uses today: `GET /games/history` (pinned to the Python behavior by a shared parity fixture). If you make the dashboard call another endpoint or a new query parameter, add it to the mirror Worker (`cloudflare/mirror/`) too, or the dashboard will break wherever the mirror serves it.
+
 ## Language support (i18n)
 
 The dashboard auto-detects the visitor's preferred language from `navigator.languages` and falls back to English. A language selector in the header lets users switch manually; the choice is persisted in `localStorage`.

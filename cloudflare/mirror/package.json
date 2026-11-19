@@ -1,0 +1,16 @@
+{
+  "name": "free-games-mirror",
+  "private": true,
+  "type": "module",
+  "description": "Always-on, read-only Cloudflare mirror of free-games-notifier's dashboard, /games/history and /api/summary",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "build:dashboard": "npm --prefix ../../dashboard ci && npm --prefix ../../dashboard run build && rm -rf public && mkdir -p public && cp -R ../../dashboard/dist public/dashboard"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.5.3",
+    "vitest": "^2.1.0"
+  }
+}

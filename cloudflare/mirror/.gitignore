@@ -1,0 +1,7 @@
+node_modules/
+.wrangler/
+.dev.vars
+# Built dashboard copied in by `npm run build:dashboard` (runs on deploy).
+public/
+# Your deployment config (database_id, routes) — copy from wrangler.example.jsonc.
+wrangler.jsonc
